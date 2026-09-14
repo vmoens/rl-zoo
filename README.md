@@ -12,9 +12,9 @@ uses native MuJoCo on CPU and pinned source installation; no PyPI publication
 or extra Hugging Face repository is required.
 
 ```bash
-python -m pip install -r requirements-runtime.txt
-python -m pip install --no-build-isolation --no-deps -r requirements-torchrl.txt
-python -m pip install '.[test,video]'
+python -m pip install -r https://raw.githubusercontent.com/vmoens/rl-zoo/b1a4dcbdfd232f7c84ccf5190ea7ac4493842f2e/requirements-runtime.txt
+python -m pip install --no-build-isolation --no-deps -r https://raw.githubusercontent.com/vmoens/rl-zoo/b1a4dcbdfd232f7c84ccf5190ea7ac4493842f2e/requirements-torchrl.txt
+python -m pip install 'torchrl-zoo[test,video] @ https://github.com/vmoens/rl-zoo/archive/b1a4dcbdfd232f7c84ccf5190ea7ac4493842f2e.zip'
 python -m torchrl_zoo.microduck.train game=football observations=state algorithm=ppo runtime=macbook env.download=true smoke=true
 ```
 
