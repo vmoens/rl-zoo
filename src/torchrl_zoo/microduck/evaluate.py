@@ -92,6 +92,9 @@ def main() -> None:
                     base.num_agents, len(cfg["policy"]["skills"]), dtype=torch.long
                 )
                 spectator, egocentric = [], []
+                trajectory = []
+                first_event_seconds = None
+                boundary_samples = torch.zeros(base.num_agents, dtype=torch.long)
                 film = args.video and seed == args.seeds[0] and baseline == "learned"
                 positions = base.get_state()["qpos"]
                 box_initial = positions[0, -7:-5].clone() if game == "pushing" else None
@@ -130,6 +133,40 @@ def main() -> None:
                         fallen = nxt["agents", "fallen"][0, :, 0].cpu()
                         falls += fallen & ~previous_fallen
                         previous_fallen = fallen
+                        if game != "football":
+                            physical = base.get_state()
+                            ducks, _ = base._ducks(physical)
+                            xy = ducks[0, :, :2].cpu()
+                            boundary_samples += (
+                                xy.abs() > xy.new_tensor([base.length, base.width]) / 2
+                            ).any(-1)
+                            seconds = (
+                                float(base._step_count[0])
+                                * base.frame_skip
+                                * base._backend.timestep
+                            )
+                            events = float(nxt["events_total"].item())
+                            if first_event_seconds is None and events > 0:
+                                first_event_seconds = seconds
+                            sample = {
+                                "seconds": seconds,
+                                "duck_xy": xy.tolist(),
+                                "duck_yaw": base._yaw(ducks[0, :, 3:7]).tolist(),
+                                "skills": chosen.tolist(),
+                                "events_total": events,
+                            }
+                            for key in (
+                                "captured",
+                                "carrier",
+                                "flag_status",
+                                "flag_position",
+                                "checkpoint",
+                            ):
+                                if key in base._game_state.keys():
+                                    sample[key] = base._game_state[key][0].tolist()
+                            if game == "pushing":
+                                sample["box_xy"] = physical["qpos"][0, -7:-5].tolist()
+                            trajectory.append(sample)
                         if nxt["done"].any():
                             break
                         td = env.step_mdp(transition)
@@ -155,6 +192,9 @@ def main() -> None:
                 }
                 if game != "football":
                     row["events"] = float(nxt["events_total"].item())
+                    row["first_event_seconds"] = first_event_seconds
+                    row["boundary_violation_samples"] = boundary_samples.tolist()
+                    row["trajectory"] = trajectory
                 if game == "pushing":
                     box = base.get_state()["qpos"][0, -7:-5]
                     row.update(

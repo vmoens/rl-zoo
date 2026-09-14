@@ -71,9 +71,12 @@ python -m torchrl_zoo.microduck.evaluate tag_best.ckpt \
 Competitive games evaluate the learner on both teams against standing and
 forward-only opponents. Tag and hide-and-seek additionally assign each seeker
 role explicitly. Cooperative games compare learned, standing and forward-only
-and single-forward-duck policies. The report records individual outcomes, returns, fall events, skill
-counts, physics errors and game progress, with the checkpoint hash and resolved
-configuration. Visual policies export both spectator and concatenated
+and single-forward-duck policies. The report records individual outcomes,
+returns, fall events, skill counts, physics errors, first-event times and game
+progress. Arena trajectories include positions, headings, ownership and ordered
+checkpoint state; boundary violations count sampled root positions outside the
+arena. Reports include the checkpoint hash, resolved configuration and evaluation
+dependency versions. Visual policies export both spectator and concatenated
 per-duck egocentric video. Sensor perturbations can be evaluated using
 `--sensor-delay 0.1 --sensor-dropout 0.1`; keep these results separate from the
 ideal-sensor baseline. These are evaluation seeds, not extra training runs.
