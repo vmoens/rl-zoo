@@ -1,7 +1,7 @@
 # Arena games
 
 These environments have native MuJoCo mechanics and state-based PPOTrainer
-smokes. They have no evaluated learned policies yet. Recurrent visual selectors have passed pipeline checks; the sensor-only
+smokes. The [catalog](catalog.md) records evaluated pilots and remaining learning gaps. Recurrent visual selectors have passed pipeline checks; the sensor-only
 walker still needs training. See [sensor inputs](sensors.md).
 
 All new recipes preserve the nine-skill prior and its order. The actor chooses
@@ -66,3 +66,18 @@ rlrender --ckpt tag_best.ckpt \
 The factory reads the ordinary game class and options saved in the checkpoint's
 resolved Hydra configuration. No remote code, registry, or new checkpoint
 format is involved. The football module path is retained for compatibility.
+
+CTF rounds default to 3,000 physical steps (60 seconds). The initial pilot used
+500 steps (10 seconds), which is too short for the roughly four-metre flag
+round trip at the observed forward walking speed of about 0.22 m/s. Preserve
+that recorded configuration when interpreting its results. A longer diagnostic
+evaluation can assess the same weights without further training:
+
+```bash
+python -m torchrl_zoo.microduck.evaluate ctf_latest.ckpt \
+  --output ctf-60s --max-episode-steps 3000 --video
+```
+
+The report records the horizon override separately from the training config.
+Longer evaluation does not replace a new training experiment with an adequate
+horizon and a separately chosen budget.

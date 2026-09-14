@@ -26,7 +26,8 @@ class MicroDuckCTFEnv(_ArenaEnv):
         interaction_radius: Pickup, return and capture radius in metres.
         tag_radius: Proximity at which an upright enemy tags a carrier.
         tag_cooldown_seconds: Pickup lockout after being tagged.
-        kwargs: Native arena options. This game has two ducks per team.
+        kwargs: Native arena options. This game has two ducks per team and
+            defaults to 3,000 physical steps (60 seconds) per round.
 
     Examples:
         >>> env = MicroDuckCTFEnv(download=True)  # doctest: +SKIP
@@ -50,6 +51,7 @@ class MicroDuckCTFEnv(_ArenaEnv):
         self.interaction_radius = interaction_radius
         self.tag_radius = tag_radius
         self.tag_cooldown_seconds = tag_cooldown_seconds
+        kwargs.setdefault("max_episode_steps", 3000)
         super().__init__(scene, **kwargs)
 
     def _initial_game_state(self):

@@ -30,8 +30,15 @@ def main() -> None:
     parser.add_argument("--opponent-skills", type=int, nargs="+", default=[0, 1])
     parser.add_argument("--sensor-delay", type=float, default=0)
     parser.add_argument("--sensor-dropout", type=float, default=0)
+    parser.add_argument(
+        "--max-episode-steps",
+        type=int,
+        help="Override the recorded physical-step horizon for a diagnostic evaluation.",
+    )
     parser.add_argument("--video", action="store_true")
     args = parser.parse_args()
+    if args.max_episode_steps is not None and args.max_episode_steps <= 0:
+        parser.error("--max-episode-steps must be positive")
     torch.set_num_threads(1)
     payload = load_checkpoint(args.checkpoint)
     config = deepcopy(payload["config"])
@@ -57,6 +64,8 @@ def main() -> None:
         for seed in args.seeds:
             cfg = deepcopy(config)
             cfg["env"].update(seed=seed, num_envs=1, parallel=False, download=True)
+            if args.max_episode_steps is not None:
+                cfg["env"]["max_episode_steps"] = args.max_episode_steps
             if role is not None:
                 cfg["game"]["options"]["role"] = role
             if cfg["observations"]["mode"] == "proprioception_vision":
@@ -244,6 +253,7 @@ def main() -> None:
                         "opponent_skills": args.opponent_skills,
                         "sensor_delay_s": args.sensor_delay,
                         "sensor_dropout": args.sensor_dropout,
+                        "max_episode_steps": args.max_episode_steps,
                         "deterministic": True,
                     },
                     "config": config,
