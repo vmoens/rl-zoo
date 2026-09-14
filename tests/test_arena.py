@@ -420,6 +420,23 @@ def test_sensor_selector_sequences_resume_and_opponent_memory(tmp_path, observat
         torch.testing.assert_close(
             combined[state_key][..., 1:, :, :], red[state_key][..., 1:, :, :]
         )
+        with torch.no_grad(), set_exploration_type(ExplorationType.DETERMINISTIC):
+            reversed_policy = OpponentPolicy(
+                actor, 1, env.action_key, opponent=opponent, opponent_team="blue"
+            )
+            reversed_output = reversed_policy(reset.clone())
+        torch.testing.assert_close(
+            reversed_output[state_key][..., :1, :, :], red[state_key][..., :1, :, :]
+        )
+        torch.testing.assert_close(
+            reversed_output[state_key][..., 1:, :, :], blue[state_key][..., 1:, :, :]
+        )
+        torch.testing.assert_close(
+            reversed_output[env.action_key][..., :1], red[env.action_key][..., :1]
+        )
+        torch.testing.assert_close(
+            reversed_output[env.action_key][..., 1:], blue[env.action_key][..., 1:]
+        )
         # With identical allowed inputs, changing all privileged state has no
         # effect, and the exported actor needs none of those fields.
         allowed = reset.select(*actor.in_keys, strict=False)

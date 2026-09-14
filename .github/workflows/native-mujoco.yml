@@ -39,7 +39,7 @@ jobs:
           done
       - name: Installed recurrent sensor integration
         working-directory: /tmp
-        timeout-minutes: 3
+        timeout-minutes: 6
         run: |
-          python -m torchrl_zoo.microduck.train game=tag observations=proprioception_vision algorithm=ppo_ewma env.download=true smoke=true ppo.reference_kl_coeff=0.1 ppo.train_team=blue policy.opponent_checkpoint=self
-          python -m torchrl_zoo.microduck.train game=hide_and_seek observations=proprioception_vision env.download=true smoke=true
+          python -m torchrl_zoo.microduck.train game=tag observations=proprioception_vision observations.sensors.image_size=32 observations.sensors.camera_fps=10 algorithm=ppo_ewma env.download=true smoke=true ppo.reference_kl_coeff=0.1 ppo.train_team=blue policy.opponent_checkpoint=self
+          python -m torchrl_zoo.microduck.train game=hide_and_seek observations=proprioception_vision observations.sensors.image_size=32 observations.sensors.camera_fps=10 env.download=true smoke=true

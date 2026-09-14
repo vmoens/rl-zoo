@@ -421,7 +421,7 @@ def make_models(
 
 
 class OpponentPolicy(TensorDictModuleBase):
-    """Run the actor for every duck, then hand the red team to its opponent.
+    """Run the actor, then hand the selected team to its fixed opponent.
 
     The opponent curriculum: blue learns against a team of statues (``skill``
     0, standing), of ducks running one fixed skill, or of ducks driven by a
@@ -441,8 +441,12 @@ class OpponentPolicy(TensorDictModuleBase):
         *,
         skill: int | None = None,
         opponent: ProbabilisticActor | None = None,
+        opponent_team: Literal["blue", "red"] = "red",
     ):
         super().__init__()
+        if opponent_team not in ("blue", "red"):
+            raise ValueError("opponent_team must be blue or red.")
+        self.opponent_team = opponent_team
         if (skill is None) == (opponent is None):
             raise ValueError("Pass exactly one of skill and opponent.")
         self.actor = actor
@@ -461,32 +465,30 @@ class OpponentPolicy(TensorDictModuleBase):
     def forward(self, tensordict: TensorDictBase) -> TensorDictBase:
         tensordict = self.actor(tensordict)
         action = tensordict.get(self.action_key).clone()
+        start = self.players_per_team if self.opponent_team == "red" else 0
+        target = action.narrow(tensordict.ndim, start, self.players_per_team)
+        memory = None
         if self.skill is not None:
-            action[..., self.players_per_team :] = self.skill
+            target.fill_(self.skill)
         else:
             with torch.no_grad():
-                red = self.opponent(tensordict.select(*self.opponent.in_keys))
-            action[..., self.players_per_team :] = red.get(self.action_key)[
-                ..., self.players_per_team :
-            ]
-        if self.opponent is not None and (
-            "next",
-            "agents",
-            "selector_state",
-        ) in red.keys(True, True):
-            memory = tensordict["next", "agents", "selector_state"].clone()
-            memory[..., self.players_per_team :, :, :] = red[
-                "next", "agents", "selector_state"
-            ][..., self.players_per_team :, :, :]
-            tensordict["next", "agents", "selector_state"] = memory
+                opponent = self.opponent(tensordict.select(*self.opponent.in_keys))
+            target.copy_(
+                opponent.get(self.action_key).narrow(
+                    tensordict.ndim, start, self.players_per_team
+                )
+            )
+            if ("next", "agents", "selector_state") in opponent.keys(True, True):
+                memory = tensordict["next", "agents", "selector_state"].clone()
+                memory.narrow(tensordict.ndim, start, self.players_per_team).copy_(
+                    opponent["next", "agents", "selector_state"].narrow(
+                        tensordict.ndim, start, self.players_per_team
+                    )
+                )
         tensordict.set(self.action_key, action)
         with torch.no_grad():
             log_prob = self.actor.get_dist(tensordict).log_prob(action)
-        if self.opponent is not None and (
-            "next",
-            "agents",
-            "selector_state",
-        ) in red.keys(True, True):
+        if memory is not None:
             tensordict["next", "agents", "selector_state"] = memory
         return tensordict.set(self.actor.log_prob_keys[0], log_prob)
 

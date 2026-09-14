@@ -37,9 +37,15 @@ def _arena_scene(
     length: float = 3.0,
     width: float = 2.0,
     box_mass: float = 0.05,
+    box_size: tuple[float, float, float] = (0.14, 0.2, 0.1),
     barrier_height: float = 0.0,
 ) -> str:
-    if players < 1 or min(length, width, box_mass) <= 0 or barrier_height < 0:
+    if (
+        len(box_size) != 3
+        or players < 1
+        or min(length, width, box_mass, *box_size) <= 0
+        or barrier_height < 0
+    ):
         raise ValueError(
             "Arena counts/dimensions/mass must be positive; barrier height nonnegative."
         )
@@ -118,7 +124,11 @@ def _arena_scene(
                 y = (index - (players - 1) / 2) * 0.4
                 yaw = 0 if team == 0 else math.pi
                 if game == "pushing":
-                    x, y, yaw = -0.3, (team - 0.5) * 0.16, 0
+                    x, y, yaw = (
+                        -box_size[0] / 2 - 0.21,
+                        (team - 0.5) * box_size[1] * 2 / 3,
+                        0,
+                    )
                 elif game == "relay":
                     x, y, yaw = (-1.0, -0.1, 0) if team == 0 else (0.0, 0.3, 0)
                 quat = _yaw_quaternion(yaw)
@@ -155,19 +165,19 @@ def _arena_scene(
                     rgba=[0.2, 0.45, 0.95, 1] if team == 0 else [0.95, 0.25, 0.2, 1],
                 )
         if game == "pushing":
-            box = world.add_body(name="box", pos=[0, 0, 0.055])
+            box = world.add_body(name="box", pos=[0, 0, box_size[2] / 2 + 0.005])
             box.add_joint(name="box_free", type=mujoco.mjtJoint.mjJNT_FREE)
             box.add_geom(
                 name="box_geom",
                 type=mujoco.mjtGeom.mjGEOM_BOX,
-                size=[0.07, 0.1, 0.05],
+                size=[dimension / 2 for dimension in box_size],
                 mass=box_mass,
                 conaffinity=3,
                 contype=3,
                 friction=[0.4, 0.005, 0.001],
                 rgba=[0.9, 0.7, 0.15, 1],
             )
-            key_qpos += [0, 0, 0.055, 1, 0, 0, 0]
+            key_qpos += [0, 0, box_size[2] / 2 + 0.005, 1, 0, 0, 0]
             world.add_geom(
                 name="delivery",
                 type=mujoco.mjtGeom.mjGEOM_CYLINDER,

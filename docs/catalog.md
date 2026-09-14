@@ -9,8 +9,8 @@ This optional package owns game mechanics, scenes, selectors and recipes.
 | [Team tag](arena-games.md) | Implemented: 1v1 and 2v2, one capture per target, inactive until round end | State PPO and recurrent visual PPO-EWMA smoke checked; state pilot running | Not evaluated |
 | [Hide-and-seek](arena-games.md) | Implemented: cover, preparation, sustained camera-visible discovery | State mechanics and installed recurrent visual PPO-EWMA smoke checked | Not evaluated |
 | [Capture the flag](arena-games.md) | Implemented: 2v2, pickup/drop/return/capture, own flag home to score | State PPO smoke checked; state pilot running | Not evaluated |
-| [Cooperative pushing](arena-games.md) | Implemented: two ducks, a physical box, settled delivery | State PPO smoke checked; physical feasibility trial pending | Not evaluated |
-| [Obstacle relay](arena-games.md) | Implemented: ordered checkpoints, single visible baton and handoff zone | Flat state PPO smoke checked; barriers await hop-clearance measurements | Not evaluated |
+| [Cooperative pushing](arena-games.md) | Implemented: two ducks, a physical box, settled delivery | State PPO smoke checked; wider-box feasibility measured | Not evaluated |
+| [Obstacle relay](arena-games.md) | Implemented: ordered checkpoints, single visible baton and handoff zone | Flat state PPO smoke checked; 5 mm crossings measured, flat pilot first | Not evaluated |
 
 An implemented environment has tested mechanics. An evaluated game has a
 recorded experiment and its measured outcomes; completing a pilot does not

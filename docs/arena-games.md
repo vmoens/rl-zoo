@@ -1,8 +1,8 @@
 # Arena games
 
 These environments have native MuJoCo mechanics and state-based PPOTrainer
-smokes. They have no evaluated learned policies yet. The recurrent visual
-selector and sensor-only walker remain separate work.
+smokes. They have no evaluated learned policies yet. Recurrent visual selectors have passed pipeline checks; the sensor-only
+walker still needs training. See [sensor inputs](sensors.md).
 
 All new recipes preserve the nine-skill prior and its order. The actor chooses
 one skill per duck every five physical steps. Its state observation begins
@@ -19,7 +19,7 @@ counters retain events that occur between selector decisions.
 | `game=tag` | 1v1; `env.players_per_team=2` enables 2v2. Upright seekers capture upright runners within 0.16 m. Each runner is captured once and held inactive until reset. Roles alternate each round from a seeded start; spawn sides mirror every two rounds. Capture all runners to win; runners win at the time limit. | Capture / survival in both roles |
 | `game=hide_and_seek` | Fixed cover; hiders have 2 s to prepare while seekers stay inactive. Discovery requires 0.5 s continuous visibility by one upright seeker, within 1.2 m and the mounted camera's square frustum. A MuJoCo ray must first hit the hider; occlusion or leaving the frustum resets the timer. Captured hiders stay inactive. | Discovery / survival; current state recipe is a mechanics baseline |
 | `game=ctf` | 2v2. Upright ducks pick up enemy flags within 0.16 m. Falls or enemy proximity tags drop a carried flag and lock out that carrier's pickup for 1 s. Resolve drops, friendly returns, enemy pickups, then captures. A returned flag cannot be stolen in that same step. Nearest eligible duck wins a pickup; index resolves exact ties. Own flag must be home to capture. First capture wins. | Captures against fixed opponents in both team assignments |
-| `game=pushing` | Two cooperative ducks and one 50 g box. Shared reward is five times distance progress plus ten on delivery. Delivery requires the box centre within 0.15 m of the target, upright, with both linear and angular speed below 0.03, continuously for 0.5 s. Leaving or moving resets dwell. | Settled delivery against standing / single-duck baselines |
+| `game=pushing` | Two cooperative ducks and one 28x36x10 cm, 50 g box. Shared reward is five times distance progress plus ten on delivery. Delivery requires the box centre within 0.15 m of the target, upright, with both linear and angular speed below 0.03, continuously for 0.5 s. Leaving or moving resets dwell. | Settled delivery against standing / single-duck baselines |
 | `game=relay` | Two cooperative ducks. Duck zero starts with the visible baton and visits the first checkpoint. Both upright ducks must enter the middle checkpoint within 0.18 m of each other to hand off once. Duck one then visits the finish. Each checkpoint pays once. The default course is flat. | Ordered completion against no-handoff / single-duck baselines |
 
 Nonfinite physics terminates a round. The configured time limit truncates it.
@@ -50,8 +50,9 @@ explicitly chosen budget. Run each pilot in its own output directory.
 Native measurements with one PyTorch thread and the same initialized tag
 selector: 153 / 224 / 454 skill decisions per second for 1 / 2 / 4 workers,
 respectively (300 steps per worker; macOS 26.6.2 arm64). These measure collection,
-not end-to-end optimization or visual throughput. Pushing mass/friction and
-relay barrier height remain provisional until their feasibility trials.
+not end-to-end optimization or visual throughput. The [physical feasibility report](../experiments/20260914-feasibility/README.md)
+records box geometry, fixed-skill failures and actual low-barrier crossings.
+The first relay pilot remains flat.
 
 Use the existing render entry points for new game checkpoints:
 

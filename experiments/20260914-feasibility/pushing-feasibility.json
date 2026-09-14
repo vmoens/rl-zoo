@@ -1,0 +1,295 @@
+{
+  "protocol": "Native MuJoCo, 100 skill decisions (10 simulated seconds), zero spawn noise. Ducks start at x=-0.24, y=+-0.08, facing +x. Fixed stand/forward skills; stop variant switches both to standing once box x exceeds 0.68 m. Repeated zero-noise seeds are identical and are not independent statistical evidence. The falls field counts per-duck fallen decision flags, not fall events.",
+  "results": [
+    {
+      "mass": 0.025,
+      "skills": [
+        0,
+        0
+      ],
+      "seed": 0,
+      "decisions": 100,
+      "box_displacement_x": -2.5297379208782944e-12,
+      "max_box_height": 0.04989224299788475,
+      "min_box_upright": 1.0,
+      "max_box_speed": 0.019283782690763474,
+      "falls": 0,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "mass": 0.025,
+      "skills": [
+        0,
+        0
+      ],
+      "seed": 1,
+      "decisions": 100,
+      "box_displacement_x": -2.5297379208782944e-12,
+      "max_box_height": 0.04989224299788475,
+      "min_box_upright": 1.0,
+      "max_box_speed": 0.019283782690763474,
+      "falls": 0,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "mass": 0.025,
+      "skills": [
+        1,
+        0
+      ],
+      "seed": 0,
+      "decisions": 100,
+      "box_displacement_x": 0.5216064453125,
+      "max_box_height": 0.058286845684051514,
+      "min_box_upright": 0.9970092177391052,
+      "max_box_speed": 0.5377060174942017,
+      "falls": 17,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "mass": 0.025,
+      "skills": [
+        1,
+        0
+      ],
+      "seed": 1,
+      "decisions": 100,
+      "box_displacement_x": 0.5216064453125,
+      "max_box_height": 0.058286845684051514,
+      "min_box_upright": 0.9970092177391052,
+      "max_box_speed": 0.5377060174942017,
+      "falls": 17,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "mass": 0.025,
+      "skills": [
+        1,
+        1
+      ],
+      "seed": 0,
+      "decisions": 100,
+      "box_displacement_x": 0.7561507821083069,
+      "max_box_height": 0.08542469888925552,
+      "min_box_upright": -0.17942214012145996,
+      "max_box_speed": 1.1585283279418945,
+      "falls": 37,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "mass": 0.025,
+      "skills": [
+        1,
+        1
+      ],
+      "seed": 1,
+      "decisions": 100,
+      "box_displacement_x": 0.7561507821083069,
+      "max_box_height": 0.08542469888925552,
+      "min_box_upright": -0.17942214012145996,
+      "max_box_speed": 1.1585283279418945,
+      "falls": 37,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "mass": 0.05,
+      "skills": [
+        0,
+        0
+      ],
+      "seed": 0,
+      "decisions": 100,
+      "box_displacement_x": 1.425196549317831e-12,
+      "max_box_height": 0.04989224299788475,
+      "min_box_upright": 1.0,
+      "max_box_speed": 0.019283782690763474,
+      "falls": 0,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "mass": 0.05,
+      "skills": [
+        0,
+        0
+      ],
+      "seed": 1,
+      "decisions": 100,
+      "box_displacement_x": 1.425196549317831e-12,
+      "max_box_height": 0.04989224299788475,
+      "min_box_upright": 1.0,
+      "max_box_speed": 0.019283782690763474,
+      "falls": 0,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "mass": 0.05,
+      "skills": [
+        1,
+        0
+      ],
+      "seed": 0,
+      "decisions": 100,
+      "box_displacement_x": 0.07637515664100647,
+      "max_box_height": 0.05153839290142059,
+      "min_box_upright": 0.9999352097511292,
+      "max_box_speed": 0.496660053730011,
+      "falls": 5,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "mass": 0.05,
+      "skills": [
+        1,
+        0
+      ],
+      "seed": 1,
+      "decisions": 100,
+      "box_displacement_x": 0.07637515664100647,
+      "max_box_height": 0.05153839290142059,
+      "min_box_upright": 0.9999352097511292,
+      "max_box_speed": 0.496660053730011,
+      "falls": 5,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "mass": 0.05,
+      "skills": [
+        1,
+        1
+      ],
+      "seed": 0,
+      "decisions": 100,
+      "box_displacement_x": 0.2605176270008087,
+      "max_box_height": 0.17191842198371887,
+      "min_box_upright": -0.8100484609603882,
+      "max_box_speed": 1.221376657485962,
+      "falls": 33,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "mass": 0.05,
+      "skills": [
+        1,
+        1
+      ],
+      "seed": 1,
+      "decisions": 100,
+      "box_displacement_x": 0.2605176270008087,
+      "max_box_height": 0.17191842198371887,
+      "min_box_upright": -0.8100484609603882,
+      "max_box_speed": 1.221376657485962,
+      "falls": 33,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "mass": 0.1,
+      "skills": [
+        0,
+        0
+      ],
+      "seed": 0,
+      "decisions": 100,
+      "box_displacement_x": -2.5297379208782944e-12,
+      "max_box_height": 0.04989224299788475,
+      "min_box_upright": 1.0,
+      "max_box_speed": 0.019283782690763474,
+      "falls": 0,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "mass": 0.1,
+      "skills": [
+        0,
+        0
+      ],
+      "seed": 1,
+      "decisions": 100,
+      "box_displacement_x": -2.5297379208782944e-12,
+      "max_box_height": 0.04989224299788475,
+      "min_box_upright": 1.0,
+      "max_box_speed": 0.019283782690763474,
+      "falls": 0,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "mass": 0.1,
+      "skills": [
+        1,
+        0
+      ],
+      "seed": 0,
+      "decisions": 100,
+      "box_displacement_x": 0.011575992219150066,
+      "max_box_height": 0.07276271283626556,
+      "min_box_upright": 0.9752075672149658,
+      "max_box_speed": 0.497412770986557,
+      "falls": 6,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "mass": 0.1,
+      "skills": [
+        1,
+        0
+      ],
+      "seed": 1,
+      "decisions": 100,
+      "box_displacement_x": 0.011575992219150066,
+      "max_box_height": 0.07276271283626556,
+      "min_box_upright": 0.9752075672149658,
+      "max_box_speed": 0.497412770986557,
+      "falls": 6,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "mass": 0.1,
+      "skills": [
+        1,
+        1
+      ],
+      "seed": 0,
+      "decisions": 100,
+      "box_displacement_x": 0.13190153241157532,
+      "max_box_height": 0.16427487134933472,
+      "min_box_upright": -0.9999983310699463,
+      "max_box_speed": 1.3581368923187256,
+      "falls": 42,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "mass": 0.1,
+      "skills": [
+        1,
+        1
+      ],
+      "seed": 1,
+      "decisions": 100,
+      "box_displacement_x": 0.13190153241157532,
+      "max_box_height": 0.16427487134933472,
+      "min_box_upright": -0.9999983310699463,
+      "max_box_speed": 1.3581368923187256,
+      "falls": 42,
+      "physics_error": false,
+      "delivered": false
+    }
+  ],
+  "walker_revision": "01ebcefca08850231edc0eb428a0151474559a85",
+  "walker_sha256": "9fbf1e15b25dd1ce65fcceeb2d854240028be703b72f37b5af05b9b50f115876"
+}

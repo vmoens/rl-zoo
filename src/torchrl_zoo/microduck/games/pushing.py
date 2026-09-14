@@ -17,7 +17,8 @@ class MicroDuckPushingEnv(_ArenaEnv):
         delivery_radius: Maximum planar box-centre distance from the target.
         settle_speed: Maximum box linear and angular speed during delivery.
         dwell_seconds: Continuous time in the target below the speed limits.
-        kwargs: Native arena options. ``arena.box_mass`` sets box mass.
+        kwargs: Native arena options. ``arena.box_mass`` sets box mass and
+            ``arena.box_size`` sets its full xyz dimensions in metres.
 
     Examples:
         >>> env = MicroDuckPushingEnv(download=True)  # doctest: +SKIP
