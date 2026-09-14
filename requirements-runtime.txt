@@ -13,3 +13,4 @@ numpy
 setuptools
 wheel
 ninja
+pybind11[global]
