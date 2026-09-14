@@ -631,6 +631,8 @@ def make_trainer(
     save_trainer_file: str | Path | None = None,
     collection_metrics_fn: Callable = _collection_metrics,
     evaluation_score_fn: Callable = evaluation_score,
+    loss_kwargs: Mapping[str, Any] | None = None,
+    target_net_updater: Callable | None = None,
 ) -> PPOTrainer:
     """Build the football PPOTrainer, including evaluation and curriculum hooks.
 
@@ -690,6 +692,7 @@ def make_trainer(
         critic_coeff=critic_coeff,
         loss_critic_type="smooth_l1",
         normalize_advantage=train_team == "both",
+        **dict(loss_kwargs or {}),
     )
     loss_module.set_keys(
         reward=REWARD_KEY,
@@ -701,6 +704,9 @@ def make_trainer(
     loss_module.loss_mask_key = ("agents", "train_mask")
     loss_module.make_value_estimator(ValueEstimators.GAE, gamma=gamma, lmbda=gae_lambda)
     optimizer = torch.optim.Adam(loss_module.parameters(), lr=learning_rate)
+    updater = (
+        target_net_updater(loss_module) if target_net_updater is not None else None
+    )
     scheduler = (
         KLAdaptiveLR(optimizer, target_kl=target_kl, max_lr=max_learning_rate)
         if target_kl is not None
@@ -719,6 +725,7 @@ def make_trainer(
         num_epochs=epochs,
         loss_module=loss_module,
         optimizer=optimizer,
+        target_net_updater=updater,
         clip_norm=max_grad_norm,
         add_gae=False,
         enable_logging=False,
@@ -982,6 +989,10 @@ def make_training(recipe: DictConfig) -> PPOTrainer:
         iteration_callback=iteration_callback,
         collection_metrics_fn=collection_metrics_fn,
         evaluation_score_fn=score_fn,
+        loss_kwargs=config.get("loss"),
+        target_net_updater=instantiate(cfg.target_net_updater)
+        if cfg.get("target_net_updater")
+        else None,
     )
     trainer.game_hooks.video_env = video_env
     trainer.register_op("shutdown", trainer.game_hooks.close)

@@ -22,6 +22,16 @@ to TorchCodec. The smoke command collects 40 skill decisions and evaluates and
 renders short matches. Remove `smoke=true` for the configured training run.
 Machine-specific asset paths can be supplied with `env.microduck_root`.
 
+Use `algorithm=ppo_ewma` to train with a distinct proximal actor updated after
+each successful optimizer step (`target_net_updater.eps=0.99`). Evaluation,
+critic-only warmup and frozen opponents keep their own roles; the reference-KL
+actor remains separate from the proximal actor. The KL-adaptive scheduler uses
+the PPO loss's proximal-policy KL and excludes frozen/inactive ducks.
+Resume with `resume=/path/to/trainer.ckpt` and the same architecture/algorithm.
+The trainer checkpoint includes learner/proximal/reference/opponent parameters,
+optimizer, scheduler, updater, RNG and evaluation-hook state. Best/latest
+inference exports are separate; resumed physics begins with fresh matches.
+
 On Linux CPU machines, install matching CPU wheels before the requirements:
 `python -m pip install torch==2.11.0 torchcodec==0.16.0 --index-url https://download.pytorch.org/whl/cpu`.
 The default Linux TorchCodec wheel requires CUDA libraries; see its

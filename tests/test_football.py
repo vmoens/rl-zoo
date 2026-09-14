@@ -26,6 +26,7 @@ from torchrl.envs.custom.mujoco._backends import (
 )
 from torchrl.envs.utils import check_env_specs
 from torchrl.modules import GRUModule
+from torchrl.objectives import SoftUpdate
 
 from torchrl_zoo.microduck import football as football_mappo
 from torchrl_zoo.microduck.games.football import (
@@ -51,7 +52,10 @@ _AVAILABLE_BACKENDS = [
 
 
 class TestFootball:
-    def test_trainer_resume_matches_next_update_with_frozen_opponent(self, tmp_path):
+    @pytest.mark.parametrize("ewma", [False, True])
+    def test_trainer_resume_matches_next_update_with_frozen_opponent(
+        self, tmp_path, ewma
+    ):
         torch.manual_seed(7)
         base = self._football_env(tmp_path, max_episode_steps=12)
         low = TensorDictModule(
@@ -82,6 +86,8 @@ class TestFootball:
             collection_policy=policy,
             reference_kl_coeff=0.5,
             reference_kl_final_coeff=0.1,
+            loss_kwargs={"delay_actor": ewma},
+            target_net_updater=ft.partial(SoftUpdate, eps=0.9) if ewma else None,
         )
         try:
             batch = next(iter(trainer.collector)).clone()
@@ -113,6 +119,7 @@ class TestFootball:
                     prepared["advantage"][..., :1, :], normalized
                 )
             reference_loss = deepcopy(trainer.loss_module)
+            reference_updater = SoftUpdate(reference_loss, eps=0.9) if ewma else None
             reference_optimizer = torch.optim.Adam(reference_loss.parameters(), lr=3e-4)
             losses = reference_loss(prepared.reshape(-1))
             sum(
@@ -120,6 +127,8 @@ class TestFootball:
             ).backward()
             nn.utils.clip_grad_norm_(reference_loss.parameters(), 1.0)
             reference_optimizer.step()
+            if reference_updater is not None:
+                reference_updater.step()
             trainer.collected_frames = 8
             trainer.optim_steps(prepared)
             for key, value in reference_loss.state_dict().items():

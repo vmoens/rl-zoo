@@ -1,2 +1,2 @@
 # Until the skill loader and integration fixes ship in a release.
-torchrl @ https://github.com/pytorch/rl/archive/d4ae6c256ecc576deaf63b223820f9fd7159363d.zip
+torchrl @ https://github.com/pytorch/rl/archive/7ce801d8659e4c7bfbba326d3462774d987689fc.zip
