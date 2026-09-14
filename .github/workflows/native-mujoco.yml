@@ -33,3 +33,7 @@ jobs:
         run: |
           python -c "import importlib.util; assert importlib.util.find_spec('examples') is None"
           python -m torchrl_zoo.microduck.train game=football observations=state algorithm=ppo runtime=macbook env.download=true smoke=true policy.opponent_skill=0 ppo.train_team=blue
+          for game in tag hide_and_seek ctf pushing relay; do
+            mkdir -p "/tmp/smoke-$game"
+            (cd "/tmp/smoke-$game" && python -m torchrl_zoo.microduck.train "game=$game" env.download=true smoke=true)
+          done

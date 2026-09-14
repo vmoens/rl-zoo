@@ -1,0 +1,30 @@
+# @package _global_
+game:
+  status: implemented
+  metrics:
+    _target_: torchrl_zoo.microduck.metrics.arena_metrics
+    _partial_: true
+  collection_metrics:
+    _target_: torchrl_zoo.microduck.metrics.collection_metrics
+    _partial_: true
+  score:
+    _target_: torchrl_zoo.microduck.metrics.evaluation_score
+    _partial_: true
+env:
+  players_per_team: 1
+  max_episode_steps: 500
+  spawn_noise: 0.03
+policy:
+  walker_checkpoint: https://huggingface.co/torchrl/microduck-skills/resolve/01ebcefca08850231edc0eb428a0151474559a85/priors/nine-skills-20260913/walker.ckpt
+  walker_sha256: 9fbf1e15b25dd1ce65fcceeb2d854240028be703b72f37b5af05b9b50f115876
+  skills: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+  hidden_size: 128
+ppo:
+  frames_per_batch: 256
+  minibatch_size: 64
+evaluation:
+  steps: 100
+  best_checkpoint_path: ${game.name}_best.ckpt
+  latest_checkpoint_path: ${game.name}_latest.ckpt
+logger:
+  project: torchrl-microduck-games

@@ -9,3 +9,4 @@ dist/
 outputs/
 *.ckpt
 *.mp4
+MUJOCO_LOG.TXT

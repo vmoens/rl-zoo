@@ -6,8 +6,7 @@ from copy import deepcopy
 
 import torch
 from tensordict import TensorDictBase
-
-from torchrl import torchrl_logger
+from torchrl import timeit, torchrl_logger
 
 
 class GameTrainingHooks:
@@ -75,6 +74,9 @@ class GameTrainingHooks:
         self.metrics = {}
         self.updates = []
         self.video_env = None
+        self.elapsed_seconds = 0.0
+        self.timer = None
+        self.pilot_seconds = (config or {}).get("runtime", {}).get("pilot_seconds")
 
     @property
     def reference_weight(self) -> float:
@@ -91,6 +93,7 @@ class GameTrainingHooks:
         )
 
     def setup(self) -> None:
+        self.timer = timeit("game_training_budget").start()
         if self.evaluation_interval is not None and self.evaluations == 0:
             self.log(self.evaluate())
 
@@ -103,17 +106,21 @@ class GameTrainingHooks:
         device = next(self.actor.parameters()).device
         batch = batch.to(device)
         reward = batch["next", "agents", "reward"]
+        active = batch.get(
+            ("agents", "active"), torch.ones_like(reward, dtype=torch.bool)
+        )
+        next_active = batch.get(("next", "agents", "active"), active)
         for key in ("done", "terminated"):
             batch["next", "agents", key] = (
                 batch["next", key].unsqueeze(-1).expand_as(reward)
-            )
+            ) | (active & ~next_active)
         batch = self.trainer.loss_module.value_estimator(batch)
         advantage = batch["advantage"]
-        mask = torch.ones_like(advantage, dtype=torch.bool)
+        mask = active.clone()
         if self.train_team == "blue":
             mask[..., advantage.shape[-2] // 2 :, :] = False
         batch["agents", "train_mask"] = mask
-        if self.train_team == "blue":
+        if self.train_team == "blue" and bool(mask.any()):
             selected = advantage[mask]
             scale = (
                 selected.std(unbiased=selected.numel() > 1)
@@ -125,7 +132,9 @@ class GameTrainingHooks:
         target = batch["value_target"][mask]
         error = target - batch["agents", "state_value"][mask]
         self.metrics["value/explained_variance"] = float(
-            1 - error.var() / target.var().clamp_min(torch.finfo(target.dtype).eps)
+            1
+            - error.var(unbiased=False)
+            / target.var(unbiased=False).clamp_min(torch.finfo(target.dtype).eps)
         )
         self.replay_buffer.empty()
         self.replay_buffer.extend(batch.reshape(-1).cpu())
@@ -191,6 +200,15 @@ class GameTrainingHooks:
 
     def finish_batch(self) -> None:
         metrics = self.metrics
+        if self.timer is not None:
+            elapsed = self.elapsed_seconds + self.timer.elapsed()
+            metrics["progress/elapsed_seconds"] = elapsed
+            if self.pilot_seconds is not None and elapsed >= self.pilot_seconds - min(
+                60, self.pilot_seconds / 10
+            ):
+                self.trainer.request_stop(
+                    "Pilot wall-clock budget; reserve remaining time for final evaluation and checkpoint."
+                )
         if self.updates:
             for key in self.updates[0]:
                 metrics[f"ppo/{key}"] = sum(row[key] for row in self.updates) / len(
@@ -207,6 +225,7 @@ class GameTrainingHooks:
         if self.evaluation_interval is not None and (
             self.iteration % self.evaluation_interval == 0
             or self.trainer.collected_frames >= self.trainer.total_frames
+            or self.trainer._stop_training
         ):
             metrics.update(self.evaluate())
         self.history.append(dict(metrics))
@@ -240,6 +259,8 @@ class GameTrainingHooks:
 
     def state_dict(self) -> dict:
         return {
+            "elapsed_seconds": self.elapsed_seconds
+            + (self.timer.elapsed() if self.timer is not None else 0),
             "iteration": self.iteration,
             "evaluations": self.evaluations,
             "best_score": self.best_score,
@@ -253,6 +274,8 @@ class GameTrainingHooks:
         }
 
     def load_state_dict(self, state: dict) -> None:
+        self.elapsed_seconds = state.get("elapsed_seconds", 0.0)
+        self.timer = None
         self.iteration = state["iteration"]
         self.evaluations = state["evaluations"]
         self.best_score = state["best_score"]

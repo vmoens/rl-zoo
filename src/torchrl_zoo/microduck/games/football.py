@@ -46,7 +46,6 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 import torch
 from tensordict import TensorDict, TensorDictBase
-
 from torchrl.data.tensor_specs import Binary, Bounded, Composite, Unbounded
 from torchrl.envs.custom.mujoco._backends import BackendName
 from torchrl.envs.custom.mujoco.base import MujocoEnv, _MujocoMeta
@@ -57,8 +56,16 @@ from torchrl.envs.custom.mujoco.microduck import (
     _projected_gravity,
 )
 
+from ._scene import (
+    _attach_duck,
+    _camera_axes,
+    _quaternion_product,
+    _share_meshes,
+    _yaw_quaternion,
+)
+
 if TYPE_CHECKING:
-    import mujoco
+    pass
 
 _has_mujoco = importlib.util.find_spec("mujoco") is not None
 
@@ -117,67 +124,6 @@ def kickoff_positions(
         slots += row(back, -0.3 * pitch_length, 0.3 * pitch_width)
         slots += row(field - back, -0.12 * pitch_length, 0.2 * pitch_width)
     return slots
-
-
-def _yaw_quaternion(yaw: float) -> list[float]:
-    return [math.cos(yaw / 2.0), 0.0, 0.0, math.sin(yaw / 2.0)]
-
-
-def _quaternion_product(a: Sequence[float], b: Sequence[float]) -> list[float]:
-    w1, x1, y1, z1 = a
-    w2, x2, y2, z2 = b
-    return [
-        w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
-        w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
-        w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
-        w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
-    ]
-
-
-def _camera_axes(position: Sequence[float], target: Sequence[float]) -> list[float]:
-    """Return the ``xyaxes`` of a camera at ``position`` looking at ``target``."""
-    forward = [t - p for t, p in zip(target, position)]
-    norm = math.sqrt(sum(v * v for v in forward))
-    forward = [v / norm for v in forward]
-    up = (0.0, 0.0, 1.0)
-    right = [
-        forward[1] * up[2] - forward[2] * up[1],
-        forward[2] * up[0] - forward[0] * up[2],
-        forward[0] * up[1] - forward[1] * up[0],
-    ]
-    norm = math.sqrt(sum(v * v for v in right))
-    right = [v / norm for v in right]
-    camera_up = [
-        right[1] * forward[2] - right[2] * forward[1],
-        right[2] * forward[0] - right[0] * forward[2],
-        right[0] * forward[1] - right[1] * forward[0],
-    ]
-    return right + camera_up
-
-
-def _share_meshes(spec: mujoco.MjSpec) -> None:
-    """Keep one copy of each mesh that was attached under several prefixes.
-
-    :meth:`mujoco.MjSpec.attach` copies the child's meshes under the player's
-    prefix, so a team of five carries five copies of every robot mesh. Point
-    the other players' geoms at the first copy and delete the rest; the
-    compiled model is unchanged apart from its mesh tables.
-    """
-    first: dict[str, str] = {}
-    replacement: dict[str, str] = {}
-    for mesh in spec.meshes:
-        if "/" not in mesh.name:
-            continue
-        stem = mesh.name.split("/", 1)[1]
-        kept = first.setdefault(stem, mesh.name)
-        if kept != mesh.name:
-            replacement[mesh.name] = kept
-    for geom in spec.geoms:
-        if geom.meshname in replacement:
-            geom.meshname = replacement[geom.meshname]
-    for mesh in list(spec.meshes):
-        if mesh.name in replacement:
-            spec.delete(mesh)
 
 
 def build_football_scene(
@@ -559,21 +505,7 @@ def build_football_scene(
                 position = [sign * slot_x, sign * slot_y, 0.0]
                 quaternion = _yaw_quaternion(yaw)
                 frame = world.add_frame(pos=position, quat=quaternion)
-                child = mujoco.MjSpec.from_file(str(robot_scene))
-                for geom in list(child.worldbody.geoms):
-                    child.delete(geom)
-                for light in list(child.worldbody.lights):
-                    child.delete(light)
-                for key in list(child.keys):
-                    child.delete(key)
-                for material in list(child.materials):
-                    if any(material.textures):
-                        child.delete(material)
-                    elif "shell" in material.name:
-                        material.rgba = color
-                for texture in list(child.textures):
-                    child.delete(texture)
-                spec.attach(child, prefix=f"{name}{index}/", frame=frame)
+                _attach_duck(spec, robot_scene, f"{name}{index}/", frame, color)
                 # Root pose of the STAND keyframe, expressed in the world.
                 root_x = position[0] + sign * stand_qpos[0]
                 root_y = position[1] + sign * stand_qpos[1]

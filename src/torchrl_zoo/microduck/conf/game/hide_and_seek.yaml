@@ -1,0 +1,13 @@
+# @package _global_
+defaults:
+  - arena
+game:
+  name: hide_and_seek
+  status: implemented
+  env:
+    _target_: torchrl_zoo.microduck.games.hide_and_seek.MicroDuckHideAndSeekEnv
+  options:
+    role: random
+    preparation_seconds: 2.0
+    discovery_seconds: 0.5
+    discovery_range: 1.2

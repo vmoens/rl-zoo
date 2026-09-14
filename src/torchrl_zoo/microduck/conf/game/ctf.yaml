@@ -1,0 +1,13 @@
+# @package _global_
+defaults:
+  - arena
+game:
+  name: ctf
+  env:
+    _target_: torchrl_zoo.microduck.games.ctf.MicroDuckCTFEnv
+  options:
+    interaction_radius: 0.16
+    tag_radius: 0.16
+    tag_cooldown_seconds: 1.0
+env:
+  players_per_team: 2

@@ -53,12 +53,12 @@ from pathlib import Path
 from typing import Any, Literal
 
 import torch
+from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from tensordict import NestedKey, TensorDictBase
 from tensordict.nn import NormalParamExtractor, TensorDictModule, TensorDictModuleBase
 from torch import nn
 from torch.distributions import Categorical
-
 from torchrl import torchrl_logger
 from torchrl.checkpoint import Checkpoint, GlobalRNGState
 from torchrl.collectors import Collector, Evaluator
@@ -77,11 +77,13 @@ from torchrl.record.loggers import Logger, generate_exp_name, get_logger
 from torchrl.render import load_checkpoint, save_render_checkpoint
 from torchrl.trainers import ReplayBufferTrainer
 from torchrl.trainers.algorithms import PPOTrainer
+
 from torchrl_zoo.microduck.training import GameTrainingHooks
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 
 from torchrl.envs import load_microduck_walker
+
 from torchrl_zoo.microduck.games.football import MicroDuckFootballEnv
 
 # The asset location is machine specific and is never taken from a checkpoint.
@@ -134,7 +136,9 @@ def make_env(
         if key not in ASSET_KEYS
     }
     recorded_config = {
-        key: recorded_config[key] for key in ("env", "policy") if key in recorded_config
+        key: recorded_config[key]
+        for key in ("env", "policy", "game")
+        if key in recorded_config
     }
     overrides = {
         "microduck_root": None if microduck_root is None else str(microduck_root),
@@ -192,9 +196,37 @@ def make_env(
     }
     if env_cfg["backend"] == "mujoco":
         kwargs["parallel"] = env_cfg["parallel"]
-    env: EnvBase = MicroDuckFootballEnv(
-        microduck_root=env_cfg["microduck_root"], **kwargs
-    )
+    game_cfg = merged.get("game", {})
+    if game_cfg.get("env"):
+        kwargs = {
+            key: kwargs[key]
+            for key in (
+                "root",
+                "download",
+                "players_per_team",
+                "backend",
+                "num_envs",
+                "device",
+                "seed",
+                "max_episode_steps",
+                "action_scale",
+                "spawn_noise",
+                "camera_id",
+                "render_width",
+                "render_height",
+                "from_pixels",
+                "parallel",
+            )
+            if key in kwargs
+        }
+        env = instantiate(
+            game_cfg["env"],
+            microduck_root=env_cfg["microduck_root"],
+            **kwargs,
+            **game_cfg.get("options", {}),
+        )
+    else:
+        env = MicroDuckFootballEnv(microduck_root=env_cfg["microduck_root"], **kwargs)
     if policy_cfg["walker_checkpoint"] is not None:
         walker, tasks = load_microduck_walker(
             policy_cfg["walker_checkpoint"],
@@ -597,6 +629,8 @@ def make_trainer(
     collection_policy: TensorDictModuleBase | None = None,
     iteration_callback: Callable[[int], None] | None = None,
     save_trainer_file: str | Path | None = None,
+    collection_metrics_fn: Callable = _collection_metrics,
+    evaluation_score_fn: Callable = evaluation_score,
 ) -> PPOTrainer:
     """Build the football PPOTrainer, including evaluation and curriculum hooks.
 
@@ -722,8 +756,8 @@ def make_trainer(
         config=config,
         logger=logger,
         iteration_callback=iteration_callback,
-        collection_metrics=_collection_metrics,
-        evaluation_score=evaluation_score,
+        collection_metrics=collection_metrics_fn,
+        evaluation_score=evaluation_score_fn,
         save_checkpoint=save_checkpoint,
     )
     trainer.game_hooks = hooks
@@ -787,8 +821,12 @@ def make_training(recipe: DictConfig) -> PPOTrainer:
         cfg.env.parallel = False
         cfg.env.device = "cpu"
         cfg.env.num_envs = 1
-        cfg.env.players_per_team = 1
+        if cfg.game.name in ("football", "tag", "hide_and_seek"):
+            cfg.env.players_per_team = 1
         cfg.env.max_episode_steps = 30
+        if cfg.game.name == "hide_and_seek":
+            cfg.game.options.preparation_seconds = 0.04
+            cfg.game.options.discovery_seconds = 0.04
         cfg.policy.hidden_size = 32
         cfg.ppo.total_frames = 40
         cfg.ppo.frames_per_batch = 20
@@ -809,6 +847,18 @@ def make_training(recipe: DictConfig) -> PPOTrainer:
             "W&B logging requires logger.entity so runs do not land in an "
             "unintended default workspace."
         )
+    game_name = cfg.game.name
+    metrics_fn = (
+        instantiate(cfg.game.metrics) if cfg.game.get("metrics") else football_metrics
+    )
+    collection_metrics_fn = (
+        instantiate(cfg.game.collection_metrics)
+        if cfg.game.get("collection_metrics")
+        else _collection_metrics
+    )
+    score_fn = (
+        instantiate(cfg.game.score) if cfg.game.get("score") else evaluation_score
+    )
     torch.manual_seed(cfg.env.seed)
     config = OmegaConf.to_container(cfg, resolve=True)
     policy_kwargs = {
@@ -871,16 +921,16 @@ def make_training(recipe: DictConfig) -> PPOTrainer:
             policy,
             num_trajectories=cfg.evaluation.num_matches,
             max_steps=cfg.evaluation.steps,
-            metrics_fn=football_metrics,
+            metrics_fn=metrics_fn,
             reward_keys=("next", *REWARD_KEY),
             log_prefix="evaluation",
         )
     mode = "skills" if skills else "joints"
     logger = get_logger(
         cfg.logger.backend,
-        logger_name="microduck_football",
+        logger_name=f"microduck_{game_name}",
         experiment_name=cfg.logger.exp_name
-        or generate_exp_name("football", f"{mode}-{cfg.env.backend}"),
+        or generate_exp_name(game_name, f"{mode}-{cfg.env.backend}"),
         wandb_kwargs={
             "project": cfg.logger.project,
             "entity": cfg.logger.entity,
@@ -930,6 +980,8 @@ def make_training(recipe: DictConfig) -> PPOTrainer:
         logger=logger,
         collection_policy=policy,
         iteration_callback=iteration_callback,
+        collection_metrics_fn=collection_metrics_fn,
+        evaluation_score_fn=score_fn,
     )
     trainer.game_hooks.video_env = video_env
     trainer.register_op("shutdown", trainer.game_hooks.close)

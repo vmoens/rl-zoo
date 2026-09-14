@@ -8,3 +8,4 @@ logger:
   backend: csv
 runtime:
   pilot_seconds: 7200
+  num_threads: 1

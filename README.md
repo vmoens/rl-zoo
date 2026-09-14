@@ -2,8 +2,9 @@
 
 Game environments and recipes that consume installed TorchRL components.
 The [six-game catalog](docs/catalog.md) tracks mechanics, pipeline validation
-and evaluated behavior separately. Football is implemented; the five new
-games are planned. Skills and locomotion training remain in TorchRL.
+and evaluated behavior separately. All six environments have implemented
+mechanics. New-game learned behavior and visual recipes remain under development.
+Skills and locomotion training remain in TorchRL.
 
 Install in a virtual environment with Python 3.12. The initial configuration
 uses native MuJoCo on CPU and pinned source installation; no PyPI publication
@@ -21,10 +22,16 @@ to TorchCodec. The smoke command collects 40 skill decisions and evaluates and
 renders short matches. Remove `smoke=true` for the configured training run.
 Machine-specific asset paths can be supplied with `env.microduck_root`.
 
+On Linux CPU machines, install matching CPU wheels before the requirements:
+`python -m pip install torch==2.11.0 torchcodec==0.16.0 --index-url https://download.pytorch.org/whl/cpu`.
+The default Linux TorchCodec wheel requires CUDA libraries; see its
+[installation instructions](https://github.com/meta-pytorch/torchcodec#installing-torchcodec).
+
 The zoo remains optional for TorchRL. Its runtime imports never import
 `examples.microduck`. See [football rules and recipes](docs/football.md) and
 [artifact compatibility](docs/artifacts.md) for existing selectors and their
-exact matching walkers. Full game tests live here; TorchRL runs a bounded
+exact matching walkers, plus the [new arena games](docs/arena-games.md).
+Full game tests live here; TorchRL runs a bounded
 integration tutorial against a pinned zoo revision.
 
 Run native mechanics, training and resume regressions with `python -m pytest`.
