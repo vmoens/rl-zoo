@@ -3,7 +3,8 @@
 Game environments and recipes that consume installed TorchRL components.
 The [six-game catalog](docs/catalog.md) tracks mechanics, pipeline validation
 and evaluated behavior separately. All six environments have implemented
-mechanics. New-game learned behavior and visual recipes remain under development.
+mechanics. New-game learned behavior remains under evaluation. Recurrent sensor recipes
+have mechanics and training-pipeline checks; see [sensor selectors](docs/sensors.md).
 Skills and locomotion training remain in TorchRL.
 
 Install in a virtual environment with Python 3.12. The initial configuration

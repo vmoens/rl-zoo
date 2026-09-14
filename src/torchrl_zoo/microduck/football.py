@@ -56,13 +56,24 @@ import torch
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from tensordict import NestedKey, TensorDictBase
-from tensordict.nn import NormalParamExtractor, TensorDictModule, TensorDictModuleBase
+from tensordict.nn import (
+    NormalParamExtractor,
+    TensorDictModule,
+    TensorDictModuleBase,
+    TensorDictSequential,
+)
 from torch import nn
 from torch.distributions import Categorical
 from torchrl import torchrl_logger
 from torchrl.checkpoint import Checkpoint, GlobalRNGState
 from torchrl.collectors import Collector, Evaluator
-from torchrl.data import LazyTensorStorage, ReplayBuffer, SamplerWithoutReplacement
+from torchrl.data import (
+    LazyTensorStorage,
+    ReplayBuffer,
+    SamplerWithoutReplacement,
+    SliceSampler,
+    TensorDictReplayBuffer,
+)
 from torchrl.data.tensor_specs import Categorical as CategoricalSpec
 from torchrl.envs import (
     EnvBase,
@@ -70,7 +81,12 @@ from torchrl.envs import (
     microduck_skill_env,
 )
 from torchrl.envs.utils import ExplorationType, set_exploration_type
-from torchrl.modules import MultiAgentMLP, ProbabilisticActor, TanhNormal
+from torchrl.modules import (
+    MultiAgentMLP,
+    ProbabilisticActor,
+    TanhNormal,
+    get_primers_from_module,
+)
 from torchrl.objectives import ClipPPOLoss, KLAdaptiveLR, ValueEstimators
 from torchrl.record import VideoRecorder
 from torchrl.record.loggers import Logger, generate_exp_name, get_logger
@@ -78,6 +94,7 @@ from torchrl.render import load_checkpoint, save_render_checkpoint
 from torchrl.trainers import ReplayBufferTrainer
 from torchrl.trainers.algorithms import PPOTrainer
 
+from torchrl_zoo.microduck.sensors import _SensorSelectorFeatures
 from torchrl_zoo.microduck.training import GameTrainingHooks
 
 PACKAGE_DIR = Path(__file__).resolve().parent
@@ -137,7 +154,7 @@ def make_env(
     }
     recorded_config = {
         key: recorded_config[key]
-        for key in ("env", "policy", "game")
+        for key in ("env", "policy", "game", "observations")
         if key in recorded_config
     }
     overrides = {
@@ -196,6 +213,9 @@ def make_env(
     }
     if env_cfg["backend"] == "mujoco":
         kwargs["parallel"] = env_cfg["parallel"]
+    mode = merged.get("observations", {}).get("mode", "state")
+    kwargs["observations"] = mode
+    kwargs["sensor_kwargs"] = merged.get("observations", {}).get("sensors", {})
     game_cfg = merged.get("game", {})
     if game_cfg.get("env"):
         kwargs = {
@@ -216,6 +236,8 @@ def make_env(
                 "render_height",
                 "from_pixels",
                 "parallel",
+                "observations",
+                "sensor_kwargs",
             )
             if key in kwargs
         }
@@ -259,6 +281,8 @@ def make_models(
     depth: int = 2,
     initial_policy_scale: float = 1.0,
     centralized_critic: bool = False,
+    observations: Literal["state", "proprioception", "proprioception_vision"] = "state",
+    critic_observation: Literal["state", "actor"] = "state",
 ) -> tuple[ProbabilisticActor, TensorDictModule]:
     """Create the shared-parameter actor and the critic.
 
@@ -287,6 +311,61 @@ def make_models(
         "num_cells": hidden_size,
         "activation_class": nn.Tanh,
     }
+    if observations not in (
+        "state",
+        "proprioception",
+        "proprioception_vision",
+    ) or critic_observation not in ("state", "actor"):
+        raise ValueError("Unknown actor or critic observation mode.")
+    if observations != "state":
+        if not isinstance(action_spec, CategoricalSpec):
+            raise ValueError(
+                "Sensor game recipes currently select skills from a matching walker."
+            )
+        features = _SensorSelectorFeatures(
+            num_agents,
+            hidden_size,
+            vision=observations == "proprioception_vision",
+            device=device,
+        )
+        actor = ProbabilisticActor(
+            module=TensorDictSequential(
+                features,
+                TensorDictModule(
+                    nn.Linear(hidden_size, action_spec.space.n, device=device),
+                    in_keys=[("agents", "features")],
+                    out_keys=[("agents", "logits")],
+                ),
+            ),
+            spec=action_spec,
+            in_keys={"logits": ("agents", "logits")},
+            out_keys=[env.action_key],
+            distribution_class=Categorical,
+            return_log_prob=True,
+        )
+        if critic_observation == "actor":
+            if centralized_critic:
+                raise ValueError(
+                    "The sensor critic uses each duck's own sensor history."
+                )
+            critic = TensorDictSequential(
+                features,
+                TensorDictModule(
+                    nn.Linear(hidden_size, 1, device=device),
+                    in_keys=[("agents", "features")],
+                    out_keys=[VALUE_KEY],
+                ),
+            )
+        else:
+            critic = TensorDictModule(
+                MultiAgentMLP(
+                    observation_dim, 1, centralized=centralized_critic, **network_kwargs
+                ),
+                in_keys=[OBSERVATION_KEY],
+                out_keys=[VALUE_KEY],
+            )
+        env.append_transform(get_primers_from_module(actor))
+        return actor, critic
     if isinstance(action_spec, CategoricalSpec):
         head = TensorDictModule(
             MultiAgentMLP(
@@ -390,9 +469,25 @@ class OpponentPolicy(TensorDictModuleBase):
             action[..., self.players_per_team :] = red.get(self.action_key)[
                 ..., self.players_per_team :
             ]
+        if self.opponent is not None and (
+            "next",
+            "agents",
+            "selector_state",
+        ) in red.keys(True, True):
+            memory = tensordict["next", "agents", "selector_state"].clone()
+            memory[..., self.players_per_team :, :, :] = red[
+                "next", "agents", "selector_state"
+            ][..., self.players_per_team :, :, :]
+            tensordict["next", "agents", "selector_state"] = memory
         tensordict.set(self.action_key, action)
         with torch.no_grad():
             log_prob = self.actor.get_dist(tensordict).log_prob(action)
+        if self.opponent is not None and (
+            "next",
+            "agents",
+            "selector_state",
+        ) in red.keys(True, True):
+            tensordict["next", "agents", "selector_state"] = memory
         return tensordict.set(self.actor.log_prob_keys[0], log_prob)
 
 
@@ -633,6 +728,7 @@ def make_trainer(
     evaluation_score_fn: Callable = evaluation_score,
     loss_kwargs: Mapping[str, Any] | None = None,
     target_net_updater: Callable | None = None,
+    recurrent_episode_steps: int | None = None,
 ) -> PPOTrainer:
     """Build the football PPOTrainer, including evaluation and curriculum hooks.
 
@@ -676,12 +772,23 @@ def make_trainer(
 
     device = next(actor.parameters()).device
     collection_policy = actor if collection_policy is None else collection_policy
+    episode_count = (
+        0
+        if recurrent_episode_steps is None
+        else max(1, math.ceil(frames_per_batch / recurrent_episode_steps))
+    )
+    collector_kwargs = (
+        {}
+        if recurrent_episode_steps is None
+        else {"trajs_per_batch": episode_count, "traj_format": "cat"}
+    )
     collector = Collector(
         env,
         collection_policy,
         frames_per_batch=frames_per_batch,
         total_frames=-1,
         storing_device="cpu",
+        **collector_kwargs,
     )
     loss_module = ClipPPOLoss(
         actor_network=actor,
@@ -717,6 +824,20 @@ def make_trainer(
         sampler=SamplerWithoutReplacement(),
         batch_size=minibatch_size,
     )
+    if recurrent_episode_steps is not None:
+        replay_buffer = TensorDictReplayBuffer(
+            storage=LazyTensorStorage(
+                (episode_count + env.batch_size.numel()) * recurrent_episode_steps
+            ),
+            sampler=SliceSampler(
+                num_slices=max(1, minibatch_size // recurrent_episode_steps),
+                traj_key=("collector", "traj_ids"),
+                strict_length=False,
+                cache_values=True,
+            ),
+            batch_size=max(1, minibatch_size // recurrent_episode_steps)
+            * recurrent_episode_steps,
+        )
     trainer = PPOTrainer(
         collector=collector,
         total_frames=total_frames,
@@ -741,6 +862,7 @@ def make_trainer(
         save_trainer_interval=frames_per_batch,
     )
     trainer.collection_policy = collection_policy
+    trainer.recurrent_episode_steps = recurrent_episode_steps
     hooks = GameTrainingHooks(
         trainer,
         actor,
@@ -772,7 +894,10 @@ def make_trainer(
     trainer.register_op("setup", hooks.setup)
     trainer.register_op("batch_process", hooks.prepare)
     rb_hooks = ReplayBufferTrainer(replay_buffer, device=device)
-    trainer.register_op("process_optim_batch", rb_hooks.sample)
+    trainer.register_op(
+        "process_optim_batch",
+        hooks.sample if recurrent_episode_steps is not None else rb_hooks.sample,
+    )
     trainer.register_op("process_loss", hooks.process_loss)
     trainer.register_op("post_steps", hooks.finish_batch)
     return trainer
@@ -873,6 +998,8 @@ def make_training(recipe: DictConfig) -> PPOTrainer:
         "depth": cfg.policy.depth,
         "initial_policy_scale": cfg.policy.initial_policy_scale,
         "centralized_critic": cfg.policy.centralized_critic,
+        "observations": cfg.observations.mode,
+        "critic_observation": cfg.observations.get("critic_mode", "state"),
     }
     env = make_env(cfg)
     skills = cfg.policy.walker_checkpoint is not None
@@ -923,8 +1050,11 @@ def make_training(recipe: DictConfig) -> PPOTrainer:
 
             iteration_callback = refresh_opponent
     if cfg.evaluation.interval is not None:
+        evaluation_env = make_env(cfg, num_envs=1, parallel=False)
+        if cfg.observations.mode != "state":
+            evaluation_env.append_transform(get_primers_from_module(actor))
         evaluator = Evaluator(
-            make_env(cfg, num_envs=1, parallel=False),
+            evaluation_env,
             policy,
             num_trajectories=cfg.evaluation.num_matches,
             max_steps=cfg.evaluation.steps,
@@ -963,6 +1093,8 @@ def make_training(recipe: DictConfig) -> PPOTrainer:
             render_width=cfg.evaluation.video.width,
             render_height=cfg.evaluation.video.height,
         )
+        if cfg.observations.mode != "state":
+            video_env.append_transform(get_primers_from_module(actor))
         video_env.append_transform(recorder)
 
         video_callback = ft.partial(
@@ -989,6 +1121,11 @@ def make_training(recipe: DictConfig) -> PPOTrainer:
         iteration_callback=iteration_callback,
         collection_metrics_fn=collection_metrics_fn,
         evaluation_score_fn=score_fn,
+        recurrent_episode_steps=math.ceil(
+            cfg.env.max_episode_steps / cfg.policy.decision_period
+        )
+        if cfg.observations.mode != "state"
+        else None,
         loss_kwargs=config.get("loss"),
         target_net_updater=instantiate(cfg.target_net_updater)
         if cfg.get("target_net_updater")

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import functools as ft
+from copy import deepcopy
+
 import mujoco
 import pytest
 import torch
@@ -9,9 +12,10 @@ from _fixtures import write_microduck_fixture
 from tensordict.nn import TensorDictModule
 from torch import nn
 from torchrl.envs import MicroDuckEnv, microduck_skill_env
-from torchrl.envs.utils import check_env_specs
+from torchrl.envs.utils import check_env_specs, ExplorationType, set_exploration_type
+from torchrl.objectives import SoftUpdate
 
-from torchrl_zoo.microduck.football import make_models, make_trainer
+from torchrl_zoo.microduck.football import make_models, make_trainer, OpponentPolicy
 from torchrl_zoo.microduck.games.ctf import MicroDuckCTFEnv
 from torchrl_zoo.microduck.games.hide_and_seek import MicroDuckHideAndSeekEnv
 from torchrl_zoo.microduck.games.pushing import MicroDuckPushingEnv
@@ -353,6 +357,183 @@ def test_discovery_requires_unoccluded_sustained_visibility(tmp_path):
         for _ in range(2):
             _, done = env._step_game(state, state)
         assert done.all()
+    finally:
+        env.close()
+
+
+@pytest.mark.parametrize("observations", ["proprioception", "proprioception_vision"])
+def test_sensor_selector_sequences_resume_and_opponent_memory(tmp_path, observations):
+    torch.manual_seed(4)
+    base = MicroDuckTagEnv(
+        microduck_root=write_microduck_fixture(tmp_path),
+        root=tmp_path / "cache",
+        observations=observations,
+        players_per_team=1,
+        max_episode_steps=12,
+        spawn_noise=0,
+        seed=0,
+    )
+    walker = TensorDictModule(
+        nn.Linear(56, 14), in_keys=["observation"], out_keys=["action"]
+    )
+    with torch.no_grad():
+        walker.module.weight.zero_()
+        walker.module.bias.zero_()
+    env = microduck_skill_env(
+        base,
+        walker,
+        [MicroDuckEnv.standing_task(), MicroDuckEnv.tracking_task(0.2)],
+        steps=2,
+    )
+    actor, critic = make_models(env, hidden_size=8, depth=1, observations=observations)
+    opponent = deepcopy(actor).requires_grad_(False)
+    with torch.no_grad():
+        next(opponent.parameters()).add_(0.5)
+    policy = OpponentPolicy(actor, 1, env.action_key, opponent=opponent)
+    trainer = make_trainer(
+        env,
+        actor,
+        critic,
+        total_frames=48,
+        frames_per_batch=12,
+        minibatch_size=6,
+        epochs=1,
+        recurrent_episode_steps=6,
+        train_team="blue",
+        collection_policy=policy,
+        reference_kl_coeff=0.1,
+        loss_kwargs={"delay_actor": True},
+        target_net_updater=ft.partial(SoftUpdate, eps=0.9),
+        collection_metrics_fn=collection_metrics,
+        evaluation_score_fn=evaluation_score,
+    )
+    try:
+        reset = env.reset()
+        with torch.no_grad(), set_exploration_type(ExplorationType.DETERMINISTIC):
+            blue = actor(reset.clone())
+            red = opponent(reset.clone())
+            combined = policy(reset.clone())
+        state_key = ("next", "agents", "selector_state")
+        torch.testing.assert_close(
+            combined[state_key][..., :1, :, :], blue[state_key][..., :1, :, :]
+        )
+        torch.testing.assert_close(
+            combined[state_key][..., 1:, :, :], red[state_key][..., 1:, :, :]
+        )
+        # With identical allowed inputs, changing all privileged state has no
+        # effect, and the exported actor needs none of those fields.
+        allowed = reset.select(*actor.in_keys, strict=False)
+        poisoned = reset.clone()
+        poisoned["agents", "observation"].fill_(float("nan"))
+        with torch.no_grad():
+            expected = actor.get_dist(allowed.clone()).probs
+            actual = actor.get_dist(poisoned).probs
+        torch.testing.assert_close(actual, expected)
+        # One duck's reset must not reset the other duck's memory.
+        memory = reset.clone()
+        memory["agents", "selector_state"].fill_(1)
+        memory["agents", "is_init"].zero_()
+        with torch.no_grad():
+            normal = actor(memory.clone())
+        memory["agents", "is_init"][..., 0, :] = True
+        with torch.no_grad():
+            partial = actor(memory)
+        torch.testing.assert_close(
+            partial[state_key][..., 1, :, :], normal[state_key][..., 1, :, :]
+        )
+        assert not torch.equal(
+            partial[state_key][..., 0, :, :], normal[state_key][..., 0, :, :]
+        )
+        batch = next(iter(trainer.collector)).clone()
+        prepared = trainer.game_hooks.prepare(batch.clone())
+        sample = trainer.game_hooks.sample(prepared)
+        assert sample.names == ["time"]
+        assert sample["agents", "is_init"][0].all()
+        assert sample["next", "done"][-1].all()
+        # Recurrent evaluation must match explicit, isolated, sequential steps.
+        with torch.no_grad():
+            sequence = actor(sample.clone())
+            state = None
+            for t in range(sample.shape[0]):
+                step = sample[t].clone()
+                if state is not None:
+                    step["agents", "selector_state"] = state
+                output = actor(step)
+                torch.testing.assert_close(
+                    sequence["agents", "logits"][t],
+                    output["agents", "logits"],
+                    atol=1e-5,
+                    rtol=1e-5,
+                )
+                state = output[state_key]
+        original = trainer.loss_module(sample.clone())
+        poisoned = sample.clone()
+        mask = poisoned["agents", "train_mask"]
+        poisoned["advantage"][~mask] = 1e6
+        poisoned["value_target"][~mask] = -1e6
+        actual = trainer.loss_module(poisoned)
+        for key in ("loss_objective", "loss_entropy", "loss_critic", "kl_approx"):
+            torch.testing.assert_close(actual[key], original[key])
+        trainer.collected_frames = batch.numel()
+        trainer.optim_steps(prepared)
+        trainer._post_steps_hook()
+        checkpoint = tmp_path / "visual.trainer.ckpt"
+        trainer.checkpoint.save(checkpoint)
+        results = []
+        for _ in range(2):
+            trainer.load_from_file(checkpoint)
+            prepared = trainer.game_hooks.prepare(batch.clone())
+            trainer.collected_frames += batch.numel()
+            trainer.optim_steps(prepared)
+            trainer._post_steps_hook()
+            results.append(deepcopy(trainer.state_dict()))
+        for key, value in results[0]["loss_module"].items():
+            torch.testing.assert_close(
+                value, results[1]["loss_module"][key], rtol=0, atol=0
+            )
+    finally:
+        trainer.collector.shutdown()
+
+
+def test_camera_agent_order_mount_and_held_frames(tmp_path):
+    env = MicroDuckTagEnv(
+        microduck_root=write_microduck_fixture(tmp_path),
+        root=tmp_path / "cache",
+        observations="proprioception_vision",
+        sensor_kwargs={"camera_fps": 10},
+        spawn_noise=0,
+        players_per_team=2,
+        seed=0,
+    )
+    try:
+        td = env.reset()
+        check_env_specs(env)
+        td = env.reset()
+        model, data = env._backend.mj_model, env._backend._d
+        for index, name in enumerate(
+            (
+                "blue0/head_camera",
+                "blue1/head_camera",
+                "red0/head_camera",
+                "red1/head_camera",
+            )
+        ):
+            camera = model.camera(name).id
+            forward = -torch.as_tensor(data.cam_xmat[camera].copy()).reshape(3, 3)[:, 2]
+            q, _ = env._ducks(env._state_td())
+            yaw = env._yaw(q[0, index, 3:7])
+            expected_forward = torch.stack((yaw.cos(), yaw.sin(), yaw.new_zeros(())))
+            assert float(forward @ expected_forward.to(forward)) > 0.9
+            expected = env._backend.render(camera_id=camera, width=64, height=64)
+            torch.testing.assert_close(
+                td["agents", "camera_pixels"][:, index], expected
+            )
+        stepped = env.rand_step(td)["next"]
+        torch.testing.assert_close(
+            stepped["agents", "camera_pixels"], td["agents", "camera_pixels"]
+        )
+        assert (stepped["agents", "camera_age"] > 0).all()
+        assert env.reset()["agents", "camera_age"].count_nonzero() == 0
     finally:
         env.close()
 

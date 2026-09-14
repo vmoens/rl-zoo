@@ -1,0 +1,13 @@
+# @package _global_
+observations:
+  mode: proprioception_vision
+  critic_mode: state
+  sensors:
+    image_size: 64
+    camera_fps: 30.0
+    camera_hfov: 62.0
+    camera_delay_s: 0.0
+    camera_dropout: 0.0
+    gyro_noise_std: 0.0
+    joint_position_noise_std: 0.0
+    joint_velocity_noise_std: 0.0

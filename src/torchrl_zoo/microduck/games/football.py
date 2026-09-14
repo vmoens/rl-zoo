@@ -56,6 +56,7 @@ from torchrl.envs.custom.mujoco.microduck import (
     _projected_gravity,
 )
 
+from ..sensors import _GameSensors
 from ._scene import (
     _attach_duck,
     _camera_axes,
@@ -796,6 +797,10 @@ class MicroDuckFootballEnv(MujocoEnv, metaclass=_FootballMeta):
         scene: str | Path,
         *,
         action_scale: float = 1.0,
+        observations: Literal[
+            "state", "proprioception", "proprioception_vision"
+        ] = "state",
+        sensor_kwargs: Mapping[str, Any] | None = None,
         reward_weights: Mapping[str, float] | None = None,
         respawn: bool = True,
         knockout: bool = False,
@@ -811,6 +816,10 @@ class MicroDuckFootballEnv(MujocoEnv, metaclass=_FootballMeta):
         max_episode_steps: int = 1500,
         **kwargs: Any,
     ) -> None:
+        if observations not in ("state", "proprioception", "proprioception_vision"):
+            raise ValueError("Unknown observation mode.")
+        self.observations, self.sensor_kwargs = observations, dict(sensor_kwargs or {})
+        self._sensors = None
         for forbidden in ("xml_path", "patch_xml"):
             if forbidden in kwargs:
                 raise ValueError(
@@ -1076,7 +1085,7 @@ class MicroDuckFootballEnv(MujocoEnv, metaclass=_FootballMeta):
 
     def _make_obs_spec(self) -> Composite:
         shape = (self.num_envs, self.num_agents)
-        return Composite(
+        spec = Composite(
             agents=Composite(
                 observation=Unbounded(
                     shape=(*shape, self.observation_dim),
@@ -1101,6 +1110,15 @@ class MicroDuckFootballEnv(MujocoEnv, metaclass=_FootballMeta):
             shape=(self.num_envs,),
             device=self.device,
         )
+
+        if self.observations != "state":
+            self._sensors = _GameSensors(
+                self,
+                vision=self.observations == "proprioception_vision",
+                **self.sensor_kwargs,
+            )
+            self._sensors.add_specs(spec["agents"])
+        return spec
 
     # ------------------------------------------------------------------
     # State helpers
@@ -1235,6 +1253,8 @@ class MicroDuckFootballEnv(MujocoEnv, metaclass=_FootballMeta):
         return qpos, qvel
 
     def _on_reset_all(self, tensordict: TensorDictBase | None = None) -> None:
+        if self._sensors is not None:
+            self._sensors.reset()
         self._previous_action.zero_()
         self._fallen.zero_()
         self._down.zero_()
@@ -1248,6 +1268,8 @@ class MicroDuckFootballEnv(MujocoEnv, metaclass=_FootballMeta):
         tensordict: TensorDictBase | None = None,
     ) -> None:
         mask = mask.squeeze(-1) if mask.ndim == 2 else mask
+        if self._sensors is not None and self._sensors.vision and mask.any():
+            self._sensors.reset()
         self._previous_action = torch.where(
             mask[:, None, None],
             torch.zeros_like(self._previous_action),
@@ -1370,6 +1392,8 @@ class MicroDuckFootballEnv(MujocoEnv, metaclass=_FootballMeta):
             "goal": self._goal.clone(),
             "knockout": self._knockout.clone(),
         }
+        if self._sensors is not None:
+            self._sensors.update(out["agents"])
         if self.from_pixels:
             out["pixels"] = self._render_pixels()
         return out
@@ -1617,6 +1641,8 @@ class MicroDuckFootballEnv(MujocoEnv, metaclass=_FootballMeta):
         }
 
     def _load_indexed_extra_state(self, state: dict[str, Any]) -> None:
+        if self._sensors is not None:
+            self._sensors = self._sensors.clone_for(self)
         self._previous_action = state["previous_action"].clone()
         self._fallen = state["fallen"].clone()
         self._down = state["down"].clone()
@@ -1634,6 +1660,8 @@ class MicroDuckFootballEnv(MujocoEnv, metaclass=_FootballMeta):
                 "MicroDuckFootballEnv snapshots can only be restored from a "
                 "MicroDuckFootballEnv."
             )
+        if self._sensors is not None and self._sensors.vision:
+            self._sensors = source._sensors.clone_for(self)
         self._previous_action[index] = source._previous_action.to(self.device)
         self._fallen[index] = source._fallen.to(self.device)
         self._down[index] = source._down.to(self.device)

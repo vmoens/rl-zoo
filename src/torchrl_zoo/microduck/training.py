@@ -99,6 +99,8 @@ class GameTrainingHooks:
 
     @torch.no_grad()
     def prepare(self, batch: TensorDictBase) -> TensorDictBase:
+        if self.trainer.recurrent_episode_steps is not None:
+            batch = batch.reshape(-1).refine_names("time")
         self.iteration += 1
         self.metrics = self.collection_metrics(batch)
         self.metrics["collection/frames"] = float(batch.numel())
@@ -139,6 +141,15 @@ class GameTrainingHooks:
         self.replay_buffer.empty()
         self.replay_buffer.extend(batch.reshape(-1).cpu())
         return batch
+
+    def sample(self, batch):
+        # SliceSampler returns entire trajectories, including each episode's
+        # own reset. Name time so the selector recomputes every actor's GRU.
+        return (
+            self.replay_buffer.sample()
+            .to(next(self.actor.parameters()).device)
+            .refine_names("time")
+        )
 
     def process_loss(
         self, batch: TensorDictBase, losses: TensorDictBase
@@ -234,6 +245,8 @@ class GameTrainingHooks:
         if self.iteration_callback is not None:
             self.iteration_callback(self.iteration)
         self.replay_buffer.empty()
+        if self.trainer.recurrent_episode_steps is not None:
+            self.trainer.collector.reset()
         torchrl_logger.info(
             "Game PPO frames=%d/%d reward=%+.4f lr=%.2e",
             self.trainer.collected_frames,

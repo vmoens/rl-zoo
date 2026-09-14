@@ -37,3 +37,9 @@ jobs:
             mkdir -p "/tmp/smoke-$game"
             (cd "/tmp/smoke-$game" && python -m torchrl_zoo.microduck.train "game=$game" env.download=true smoke=true)
           done
+      - name: Installed recurrent sensor integration
+        working-directory: /tmp
+        timeout-minutes: 3
+        run: |
+          python -m torchrl_zoo.microduck.train game=tag observations=proprioception_vision algorithm=ppo_ewma env.download=true smoke=true ppo.reference_kl_coeff=0.1 ppo.train_team=blue policy.opponent_checkpoint=self
+          python -m torchrl_zoo.microduck.train game=hide_and_seek observations=proprioception_vision env.download=true smoke=true

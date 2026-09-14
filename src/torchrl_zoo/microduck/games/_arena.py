@@ -19,6 +19,7 @@ from torchrl.envs.custom.mujoco.microduck import (
     _projected_gravity,
 )
 
+from ..sensors import _GameSensors
 from ._scene import (
     _attach_duck,
     _camera_axes,
@@ -258,6 +259,8 @@ class _ArenaEnv(MujocoEnv, metaclass=_ArenaMeta):
         *,
         action_scale=1.0,
         spawn_noise=0.03,
+        observations="state",
+        sensor_kwargs=None,
         max_episode_steps=500,
         backend="mujoco",
         **kwargs,
@@ -271,6 +274,10 @@ class _ArenaEnv(MujocoEnv, metaclass=_ArenaMeta):
         self.scene_path = Path(scene)
         self.action_scale = action_scale
         self.spawn_noise = spawn_noise
+        if observations not in ("state", "proprioception", "proprioception_vision"):
+            raise ValueError("Unknown observation mode.")
+        self.observations, self.sensor_kwargs = observations, dict(sensor_kwargs or {})
+        self._sensors = None
         super().__init__(
             xml_path=scene,
             patch_xml=False,
@@ -332,7 +339,7 @@ class _ArenaEnv(MujocoEnv, metaclass=_ArenaMeta):
 
     def _make_obs_spec(self):
         shape = (1, self.num_agents)
-        return Composite(
+        spec = Composite(
             agents=Composite(
                 observation=Unbounded(
                     (*shape, self.observation_dim), device=self.device
@@ -348,6 +355,15 @@ class _ArenaEnv(MujocoEnv, metaclass=_ArenaMeta):
             shape=(1,),
             device=self.device,
         )
+
+        if self.observations != "state":
+            self._sensors = _GameSensors(
+                self,
+                vision=self.observations == "proprioception_vision",
+                **self.sensor_kwargs,
+            )
+            self._sensors.add_specs(spec["agents"])
+        return spec
 
     def _initial_game_state(self):
         return TensorDict(
@@ -382,6 +398,8 @@ class _ArenaEnv(MujocoEnv, metaclass=_ArenaMeta):
         return q, torch.zeros(n, self._backend.nv, device=self.device)
 
     def _on_reset_all(self, tensordict=None):
+        if self._sensors is not None:
+            self._sensors.reset()
         round_index = self._game_state["round"] + 1
         self._previous_action.zero_()
         self._fallen.zero_()
@@ -498,6 +516,8 @@ class _ArenaEnv(MujocoEnv, metaclass=_ArenaMeta):
             "events_total": self._game_state["events_total"].clone(),
             "physics_error": self._game_state["physics_error"].clone(),
         }
+        if self._sensors is not None:
+            self._sensors.update(result["agents"])
         if self.from_pixels:
             result["pixels"] = self._render_pixels()
         return result
@@ -624,12 +644,16 @@ class _ArenaEnv(MujocoEnv, metaclass=_ArenaMeta):
 
     def _load_indexed_extra_state(self, state):
         self._game_state = state["game"].clone()
+        if self._sensors is not None:
+            self._sensors = self._sensors.clone_for(self)
         self._previous_action = state["previous_action"].clone()
         self._fallen = state["fallen"].clone()
         self._down_steps = state["down_steps"].clone()
 
     def _set_indexed_extra_state(self, index, source):
         self._game_state[index] = source._game_state
+        if self._sensors is not None and self._sensors.vision:
+            self._sensors = source._sensors.clone_for(self)
         self._previous_action[index] = source._previous_action
         self._fallen[index] = source._fallen
         self._down_steps[index] = source._down_steps
