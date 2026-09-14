@@ -296,6 +296,12 @@ class TestFootball:
         assert env.reward_key == ("agents", "reward")
         check_env_specs(env)
         observation = env.reset()["agents", "observation"]
+        if backend == "mujoco":
+            for name, direction in (("blue0/head_camera", 1), ("red1/head_camera", -1)):
+                camera = env._backend.mj_model.camera(name).id
+                rotation = env._backend._d.cam_xmat[camera].reshape(3, 3)
+                assert -rotation[0, 2] * direction > 0.9
+                assert rotation[2, 1] > 0.9
         features = observation[..., MicroDuckEnv.OBSERVATION_DIM :]
         # At kickoff every duck faces the goal it attacks from its own half.
         torch.testing.assert_close(

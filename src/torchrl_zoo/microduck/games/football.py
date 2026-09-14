@@ -48,6 +48,7 @@ import torch
 from tensordict import TensorDict, TensorDictBase
 from torchrl.data.tensor_specs import Binary, Bounded, Composite, Unbounded
 from torchrl.envs.custom.mujoco._backends import BackendName
+from torchrl.envs.custom.mujoco._sensors import _align_microduck_cameras
 from torchrl.envs.custom.mujoco.base import MujocoEnv, _MujocoMeta
 from torchrl.envs.custom.mujoco.microduck import (
     MicroDuckEnv,
@@ -933,6 +934,7 @@ class MicroDuckFootballEnv(MujocoEnv, metaclass=_FootballMeta):
         import mujoco
 
         model = self._backend.mj_model
+        _align_microduck_cameras(model)
         numeric = mujoco.mj_name2id(
             model, mujoco.mjtObj.mjOBJ_NUMERIC, FOOTBALL_NUMERIC
         )
