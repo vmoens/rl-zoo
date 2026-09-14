@@ -12,6 +12,7 @@ import torch
 from tensordict import TensorDict
 from torchrl.data import Binary, Bounded, Composite, Unbounded
 from torchrl.envs import MicroDuckEnv
+from torchrl.envs.custom.mujoco._sensors import _align_microduck_cameras
 from torchrl.envs.custom.mujoco.base import MujocoEnv, _MujocoMeta
 from torchrl.envs.custom.mujoco.microduck import (
     _body_frame_linear_velocity,
@@ -298,6 +299,7 @@ class _ArenaEnv(MujocoEnv, metaclass=_ArenaMeta):
 
     def _make_specs(self):
         model = self._backend.mj_model
+        _align_microduck_cameras(model)
         values = model.numeric("arena").data
         self.length, self.width, players = map(float, values)
         self.players_per_team = int(players)

@@ -12,10 +12,10 @@ from _fixtures import write_microduck_fixture
 from tensordict.nn import TensorDictModule
 from torch import nn
 from torchrl.envs import MicroDuckEnv, microduck_skill_env
-from torchrl.envs.utils import check_env_specs, ExplorationType, set_exploration_type
+from torchrl.envs.utils import ExplorationType, check_env_specs, set_exploration_type
 from torchrl.objectives import SoftUpdate
 
-from torchrl_zoo.microduck.football import make_models, make_trainer, OpponentPolicy
+from torchrl_zoo.microduck.football import OpponentPolicy, make_models, make_trainer
 from torchrl_zoo.microduck.games.ctf import MicroDuckCTFEnv
 from torchrl_zoo.microduck.games.hide_and_seek import MicroDuckHideAndSeekEnv
 from torchrl_zoo.microduck.games.pushing import MicroDuckPushingEnv
@@ -362,7 +362,10 @@ def test_discovery_requires_unoccluded_sustained_visibility(tmp_path):
 
 
 @pytest.mark.parametrize("observations", ["proprioception", "proprioception_vision"])
-def test_sensor_selector_sequences_resume_and_opponent_memory(tmp_path, observations):
+@pytest.mark.parametrize("critic_observation", ["state", "actor"])
+def test_sensor_selector_sequences_resume_and_opponent_memory(
+    tmp_path, observations, critic_observation
+):
     torch.manual_seed(4)
     base = MicroDuckTagEnv(
         microduck_root=write_microduck_fixture(tmp_path),
@@ -385,7 +388,13 @@ def test_sensor_selector_sequences_resume_and_opponent_memory(tmp_path, observat
         [MicroDuckEnv.standing_task(), MicroDuckEnv.tracking_task(0.2)],
         steps=2,
     )
-    actor, critic = make_models(env, hidden_size=8, depth=1, observations=observations)
+    actor, critic = make_models(
+        env,
+        hidden_size=8,
+        depth=1,
+        observations=observations,
+        critic_observation=critic_observation,
+    )
     opponent = deepcopy(actor).requires_grad_(False)
     with torch.no_grad():
         next(opponent.parameters()).add_(0.5)
@@ -463,6 +472,21 @@ def test_sensor_selector_sequences_resume_and_opponent_memory(tmp_path, observat
         )
         batch = next(iter(trainer.collector)).clone()
         prepared = trainer.game_hooks.prepare(batch.clone())
+        with torch.no_grad():
+            values = critic(prepared.clone())["agents", "state_value"]
+            following = critic(prepared["next"].clone())["agents", "state_value"]
+            reward = prepared["next", "agents", "reward"]
+            done = prepared["next", "agents", "done"]
+            terminated = prepared["next", "agents", "terminated"]
+            expected = torch.zeros_like(values)
+            future = torch.zeros_like(values[0])
+            for t in reversed(range(prepared.shape[0])):
+                delta = reward[t] + 0.99 * following[t] * (~terminated[t]) - values[t]
+                future = delta + 0.99 * 0.95 * (~done[t]) * future
+                expected[t] = future + values[t]
+            torch.testing.assert_close(
+                prepared["value_target"], expected, atol=1e-5, rtol=1e-5
+            )
         sample = trainer.game_hooks.sample(prepared)
         assert sample.names == ["time"]
         assert sample["agents", "is_init"][0].all()

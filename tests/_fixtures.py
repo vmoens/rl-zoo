@@ -19,7 +19,11 @@ def write_microduck_fixture(tmp_path: Path) -> Path:
         '      <geom type="sphere" size="0.02" mass="0.1"/>',
         '      <site name="head_imu" pos="0 0 0.02" quat="0.707107 0 -0.707107 0"/>',
         '      <site name="mouth_tip" pos="0.0266783 0 -0.00332564"/>',
-        '      <camera name="head_camera" pos="0.026 0 0.02" xyaxes="0 -1 0 0 0 1" fovy="90"/>',
+        '      <body name="camera_mount" pos="0.026 0 0.02" '
+        'quat="0.707107 0 -0.707107 0">',
+        '        <site name="head_camera" quat="0.707107 0 0.707107 0"/>',
+        '        <camera name="head_camera" quat="0 0 -1 0" fovy="90"/>',
+        "      </body>",
     ]
     for side, y in (("left", 0.03), ("right", -0.03)):
         lines.extend(

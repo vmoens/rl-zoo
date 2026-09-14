@@ -7,6 +7,7 @@ import hashlib
 import json
 import math
 from copy import deepcopy
+from importlib.metadata import version
 from pathlib import Path
 
 import torch
@@ -187,6 +188,17 @@ def main() -> None:
                     ).hexdigest(),
                     "training_frames": payload.get("frames"),
                     "game": game,
+                    "evaluation_dependencies": {
+                        name: version(name)
+                        for name in (
+                            "torchrl",
+                            "torchrl-zoo",
+                            "torch",
+                            "tensordict",
+                            "mujoco",
+                            "torchcodec",
+                        )
+                    },
                     "evaluation": {
                         "seeds": args.seeds,
                         "opponent_skills": args.opponent_skills,

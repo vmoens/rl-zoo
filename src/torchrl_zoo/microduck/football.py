@@ -811,7 +811,14 @@ def make_trainer(
         terminated=("agents", "terminated"),
     )
     loss_module.loss_mask_key = ("agents", "train_mask")
-    loss_module.make_value_estimator(ValueEstimators.GAE, gamma=gamma, lmbda=gae_lambda)
+    loss_module.make_value_estimator(
+        ValueEstimators.GAE,
+        gamma=gamma,
+        lmbda=gae_lambda,
+        # Recurrent sensor critics split at reset boundaries; that operation
+        # has data-dependent shapes and cannot run under torch.vmap.
+        deactivate_vmap=recurrent_episode_steps is not None,
+    )
     optimizer = torch.optim.Adam(loss_module.parameters(), lr=learning_rate)
     updater = (
         target_net_updater(loss_module) if target_net_updater is not None else None

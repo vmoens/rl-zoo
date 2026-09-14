@@ -31,6 +31,10 @@ horizontal-FOV head image, sampled at 30 Hz. Configure size, rate, FOV, delay,
 dropout and proprioceptive noise under `observations.sensors`. Missing first
 frames are black/invalid; held frames expose their age. Episode resets clear
 history; per-duck falls reset recurrent memory. Spectator rendering is separate.
+The pinned robot asset's camera quaternion points backward. TorchRL preserves
+the lens position and converts the matching site's forward/up axes to MuJoCo's
+optical frame. Arena visibility uses the same corrected mount, including state
+recipes; this is a simulation frame correction, not physical camera calibration.
 
 These configurations currently pair the sensor selector with the published
 nine-skill **privileged walker**. They are an **intermediate simulation
