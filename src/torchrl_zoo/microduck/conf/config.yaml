@@ -1,0 +1,93 @@
+defaults:
+- _self_
+- game: football
+- observations: state
+- algorithm: ppo
+- runtime: macbook
+env:
+  microduck_root: null
+  root: null
+  download: false
+  backend: mujoco
+  num_envs: 16
+  parallel: true
+  device: cpu
+  seed: 0
+  players_per_team: 5
+  pitch: {}
+  max_episode_steps: 1500
+  action_scale: 1.0
+  reward_weights: {}
+  spawn_noise: 0.1
+  yaw_noise: 0.3
+  joint_reset_noise_scale: 0.02
+  ball_noise: 0.1
+  respawn: true
+  knockout: false
+  respawn_mode: in_place
+  respawn_delay_s: 1.0
+  approach_players: null
+  progress_players: null
+  camera_id: 0
+  render_width: 640
+  render_height: 360
+policy:
+  walker_checkpoint: https://huggingface.co/torchrl/microduck-skills/resolve/8c31e2696520c402980a723b37d025e594197d9d/walker.ckpt
+  walker_sha256: cbb5023d70bac278b3d066914289698c4ca53c6c8502ee39f5285fe51cf62c31
+  skills:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  decision_period: 5
+  hidden_size: 256
+  depth: 2
+  centralized_critic: false
+  initial_policy_scale: 1.0
+  init_from: null
+  opponent_skill: null
+  opponent_checkpoint: null
+ppo:
+  total_frames: 5000000
+  frames_per_batch: 4800
+  epochs: 4
+  minibatch_size: 1200
+  learning_rate: 3e-4
+  target_kl: 0.02
+  max_learning_rate: 1e-3
+  clip_epsilon: 0.2
+  entropy_coeff: 0.01
+  critic_coeff: 0.5
+  gamma: 0.99
+  gae_lambda: 0.95
+  max_grad_norm: 1.0
+  train_team: both
+  critic_warmup_iterations: 0
+  reference_kl_coeff: 0.0
+  reference_kl_final_coeff: null
+  opponent_refresh_interval: null
+  save_trainer_file: trainer.ckpt
+evaluation:
+  interval: 10
+  num_matches: 4
+  steps: 300
+  best_checkpoint_path: microduck_football_best.ckpt
+  latest_checkpoint_path: null
+  video:
+    interval: null
+    steps: 300
+    width: 640
+    height: 360
+logger:
+  backend: wandb
+  project: torchrl-microduck-football
+  entity: null
+  exp_name: null
+  mode: online
+smoke: false
+trainer:
+  _target_: torchrl_zoo.microduck.football.make_training
+resume: null

@@ -1,0 +1,10 @@
+# @package _global_
+env:
+  backend: mujoco
+  device: cpu
+  num_envs: 1
+  parallel: false
+logger:
+  backend: csv
+runtime:
+  pilot_seconds: 7200
