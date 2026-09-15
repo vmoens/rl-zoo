@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import functools as ft
 import math
+import os
 from collections.abc import Callable, Mapping
 from copy import deepcopy
 from pathlib import Path
@@ -983,7 +984,11 @@ def make_training(recipe: DictConfig) -> PPOTrainer:
         cfg.evaluation.best_checkpoint_path = None
         cfg.evaluation.latest_checkpoint_path = None
         cfg.logger.backend = "csv"
-    if cfg.logger.backend == "wandb" and not cfg.logger.entity:
+    if (
+        cfg.logger.backend == "wandb"
+        and not cfg.logger.entity
+        and not os.environ.get("WANDB_BASE_URL", "").startswith("https://api.wandb.ai")
+    ):
         raise ValueError(
             "W&B logging requires logger.entity so runs do not land in an "
             "unintended default workspace."

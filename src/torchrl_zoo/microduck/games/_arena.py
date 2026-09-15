@@ -142,15 +142,23 @@ def _arena_scene(
                 key_ctrl += list(stand.ctrl)
         _share_meshes(spec)
         if game == "hide_and_seek":
-            for index, (x, y) in enumerate(((0.0, 0.0), (-0.45, 0.5), (0.45, -0.5))):
-                world.add_geom(
-                    name=f"cover_{index}",
-                    type=mujoco.mjtGeom.mjGEOM_BOX,
-                    pos=[x, y, 0.2],
-                    size=[0.1, 0.25, 0.2],
-                    rgba=[0.65, 0.55, 0.35, 1],
-                    conaffinity=3,
-                )
+            # A single free-movable box is the hider's tool: they roll it between
+            # themselves and the seeker to occlude the head camera. The default
+            # 25 cm cube overhangs the duck's 14 cm hip-to-head clearance but is
+            # light enough (80 g) for a duck to push around.
+            cover = world.add_body(name="cover", pos=[0, 0, 0.125])
+            cover.add_joint(name="cover_free", type=mujoco.mjtJoint.mjJNT_FREE)
+            cover.add_geom(
+                name="cover_geom",
+                type=mujoco.mjtGeom.mjGEOM_BOX,
+                size=[0.125, 0.125, 0.125],
+                mass=0.08,
+                conaffinity=3,
+                contype=3,
+                friction=[0.4, 0.005, 0.001],
+                rgba=[0.65, 0.55, 0.35, 1],
+            )
+            key_qpos += [0, 0, 0.125, 1, 0, 0, 0]
         if game == "ctf":
             for team in range(2):
                 marker = world.add_body(

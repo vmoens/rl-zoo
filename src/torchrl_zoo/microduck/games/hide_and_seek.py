@@ -1,4 +1,4 @@
-"""Hide-and-seek with fixed cover and sustained camera-visible discovery."""
+"""Hide-and-seek with a movable cover and sustained camera-visible discovery."""
 
 from __future__ import annotations
 
@@ -13,7 +13,11 @@ from .tag import MicroDuckTagEnv
 
 
 class MicroDuckHideAndSeekEnv(MicroDuckTagEnv):
-    """Hiders prepare behind fixed cover before seekers can move and discover them.
+    """Hiders prepare behind a movable cover before seekers can move and discover them.
+
+    The arena carries a single 25 cm free box (80 g) the hider rolls between
+    themselves and the seeker to block the head camera's line of sight. Both
+    roles read the cover's position and yaw in their state observation.
 
     Discovery requires one upright seeker to see an upright hider continuously
     for ``discovery_seconds``. Visibility uses the mounted head camera's square
@@ -33,6 +37,7 @@ class MicroDuckHideAndSeekEnv(MicroDuckTagEnv):
     """
 
     GAME = "hide_and_seek"
+    GAME_FEATURE_DIM = 6
 
     def __init__(
         self,
@@ -72,11 +77,27 @@ class MicroDuckHideAndSeekEnv(MicroDuckTagEnv):
             )
 
     def _game_features(self, state):
-        features = super()._game_features(state)
+        # Inherited TagEnv fills features[..., 0] with the seeker-team bit and
+        # leaves features[..., 1] zero; extend to
+        #   [seeker, prep_left, cover_x, cover_y, cover_yaw_cos, cover_yaw_sin]
+        features = torch.zeros(
+            1, self.num_agents, self.GAME_FEATURE_DIM, device=self.device
+        )
+        seekers = self._team[None] == self._game_state["seeker_team"]
+        features[..., 0] = seekers.to(self.dtype)
         elapsed = self._step_count * self.frame_skip * self._backend.timestep
         features[..., 1] = (
             1 - elapsed / max(self.preparation_seconds, 1e-6)
-        ).clamp_min(0)[:, None]
+        ).clamp_min(0).expand(self.num_agents)
+        cover = state["qpos"][:, self.num_agents * self.DUCK_NQ :]
+        # Normalize against the same half-extent used for duck positions so
+        # the magnitude is comparable across the arena.
+        features[..., 2:4] = cover[:, :2] / cover.new_tensor(
+            [self.length / 2, self.width / 2]
+        )
+        yaw = self._yaw(cover[:, 3:7])
+        features[..., 4] = yaw.cos()
+        features[..., 5] = yaw.sin()
         return features
 
     def _captures(self, q):
