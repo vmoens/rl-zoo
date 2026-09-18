@@ -2,11 +2,11 @@
 
 These environments have native MuJoCo mechanics and state-based PPOTrainer
 smokes. The [catalog](catalog.md) records evaluated pilots and remaining learning gaps. Recurrent visual selectors have passed pipeline checks; the sensor-only
-walker still needs training. See [sensor inputs](sensors.md).
+skill policy still needs training. See [sensor inputs](sensors.md).
 
 All new recipes preserve the nine-skill prior and its order. The actor chooses
 one skill per duck every five physical steps. Its state observation begins
-with the legacy 56-value walker vector, followed by arena position, heading,
+with the legacy 56-value skill-policy vector, followed by arena position, heading,
 relative positions and velocities, activity, time remaining, game state, and
 the previous skill. These are privileged simulator observations. The critic
 has its own model; frozen opponents and inactive ducks are masked from PPO.
@@ -24,7 +24,7 @@ counters retain events that occur between selector decisions.
 
 Nonfinite physics terminates a round. The configured time limit truncates it.
 Fallen active ducks respawn upright in place after 0.5 s; fallen observations
-reset that duck's walker memory. Cooperative games share fall penalties too.
+reset that duck's skill-policy memory. Cooperative games share fall penalties too.
 Tag captures are proximity events and do not depend on contacts. CTF tags only
 affect flag carriers. Flag-coloured markers follow carriers; relay has one
 baton marker following its sole owner.

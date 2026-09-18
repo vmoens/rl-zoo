@@ -11,8 +11,9 @@ import torch
 from _fixtures import write_microduck_fixture
 from tensordict.nn import TensorDictModule
 from torch import nn
-from torchrl.envs import MicroDuckEnv, microduck_skill_env
+from torchrl.envs import MicroDuckEnv, MicroDuckSkillEnv
 from torchrl.envs.utils import ExplorationType, check_env_specs, set_exploration_type
+from torchrl.modules.tensordict_module.zoo import MicroDuckSkills
 from torchrl.objectives import SoftUpdate
 
 from torchrl_zoo.microduck.football import OpponentPolicy, make_models, make_trainer
@@ -90,16 +91,21 @@ def test_tag_requires_upright_seeker_and_target(tag):
 
 
 def test_capture_cuts_gae_and_excludes_inactive_and_opponent_losses(tag):
-    walker = TensorDictModule(
+    skill_policy = TensorDictModule(
         nn.Linear(56, 14), in_keys=["observation"], out_keys=["action"]
     ).requires_grad_(False)
-    for parameter in walker.parameters():
+    for parameter in skill_policy.parameters():
         nn.init.zeros_(parameter)
-    env = microduck_skill_env(
+    env = MicroDuckSkillEnv.from_env(
         tag,
-        walker,
-        [MicroDuckEnv.standing_task(), MicroDuckEnv.tracking_task(0.2)],
-        steps=1,
+        MicroDuckSkills(
+            skill_policy,
+            MicroDuckEnv.stack_tasks(
+                [MicroDuckEnv.standing_task(), MicroDuckEnv.tracking_task(0.2)]
+            ),
+            action_scale=tag.action_scale,
+        ),
+        control_steps_per_decision=1,
     )
     actor, critic = make_models(env, hidden_size=8, depth=1)
     trainer = make_trainer(
@@ -376,17 +382,22 @@ def test_sensor_selector_sequences_resume_and_opponent_memory(
         spawn_noise=0,
         seed=0,
     )
-    walker = TensorDictModule(
+    skill_policy = TensorDictModule(
         nn.Linear(56, 14), in_keys=["observation"], out_keys=["action"]
     )
     with torch.no_grad():
-        walker.module.weight.zero_()
-        walker.module.bias.zero_()
-    env = microduck_skill_env(
+        skill_policy.module.weight.zero_()
+        skill_policy.module.bias.zero_()
+    env = MicroDuckSkillEnv.from_env(
         base,
-        walker,
-        [MicroDuckEnv.standing_task(), MicroDuckEnv.tracking_task(0.2)],
-        steps=2,
+        MicroDuckSkills(
+            skill_policy,
+            MicroDuckEnv.stack_tasks(
+                [MicroDuckEnv.standing_task(), MicroDuckEnv.tracking_task(0.2)]
+            ),
+            action_scale=base.action_scale,
+        ),
+        control_steps_per_decision=2,
     )
     actor, critic = make_models(
         env,

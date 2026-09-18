@@ -5,7 +5,7 @@ This optional package owns game mechanics, scenes, selectors and recipes.
 
 | Game | Mechanics | Pipeline | Learned behavior |
 | --- | --- | --- | --- |
-| [Football](football.md) | Implemented; relocated deterministic rollout matches the original | Native MuJoCo smoke and fixed-update resume checked | Existing published policies retain their exact walker pairings; no new learning claim |
+| [Football](football.md) | Implemented; relocated deterministic rollout matches the original | Native MuJoCo smoke and fixed-update resume checked | Existing published selectors retain their exact skill-artifact pairings; no new learning claim |
 | [Team tag](arena-games.md) | Implemented: 1v1 and 2v2, one capture per target, inactive until round end | State PPO and recurrent visual PPO-EWMA checked; initial 1v1 pilot evaluated | Latest: 4/16 seeker captures, all against approaching forward-only opponents; robust pursuit unsolved. [Results](https://huggingface.co/torchrl/microduck-skills/tree/e9fd839a38f34079695d88b66c41b660973e2a51/games/tag/20260914-pilot) |
 | [Hide-and-seek](arena-games.md) | Implemented: cover, preparation, sustained camera-visible discovery | State mechanics and installed recurrent visual PPO-EWMA smoke checked | Not evaluated |
 | [Capture the flag](arena-games.md) | Implemented: 2v2, pickup/drop/return/capture, own flag home to score | State PPO smoke checked; state pilot running | Not evaluated |

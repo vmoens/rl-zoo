@@ -12,7 +12,7 @@ with walls, two goals, a 70 mm ball and two cameras (`broadcast` and
 exports it for inspection or sharing.
 
 The env is multi-agent: `("agents", "action")` holds the 14 joint offsets of
-every duck, `("agents", "observation")` its legacy 56-value walker observation (which includes privileged simulator
+every duck, `("agents", "observation")` its legacy 56-value skill-policy observation (which includes privileged simulator
 state) followed by match features (position on the pitch, heading, ball,
 goals, teammates and opponents, all in the duck's own frame and in its team's
 frame), `("agents", "reward")` its reward. A goal ends the match with `+10`
@@ -23,21 +23,22 @@ is team relative, one set of parameters plays both sides: the example is
 plain self-play with a shared policy and a per-duck critic
 (`MultiAgentMLP`; `policy.centralized_critic=true` opts into a centralized critic).
 
-The ducks do not learn to walk again. `policy.walker_checkpoint` names a
-`ppo_mujoco.py` checkpoint (by default the published walker of the
+The ducks do not learn locomotion again. `policy.skills` identifies a
+`MicroDuckSkills` artifact (by default the published low-level policy in the
 [`torchrl/microduck-skills`](https://huggingface.co/torchrl/microduck-skills)
-Hugging Face repository, a seven-skill walker trained with a football task
+Hugging Face repository, a seven-skill policy trained with a football task
 library: standing, straight forward and backward gaits, both sidesteps and
 turning in place either way, every task keeping the head level so the camera
-looks at the horizon, without the tutorial's jump skill, downloaded once and
-checked against `policy.walker_sha256`)
-and `torchrl.envs.microduck_skill_env` builds the training env using the generic
-`ClosedLoopMultiAction` deployment: the football
-policy picks one of the walker's tasks per duck every `policy.decision_period`
+looks at the horizon, without the tutorial's jump skill). The artifact is
+downloaded at its immutable `revision` and checked against `sha256`.
+`torchrl.envs.MicroDuckSkillEnv.from_env` builds the high-level training env
+using generic `ClosedLoopMultiAction` deployment: the football
+policy picks one task-conditioned skill per duck every
+`policy.control_steps_per_decision`
 control steps (stand, walk forward or backward, sidestep left or right, turn
-left or right, the library indices in `policy.skills`), and the frozen walker
+left or right, the library indices in `policy.skill_ids`), and the frozen policy
 drives the joints at 50 Hz in between, fed the task's command and gait clock
-in its observation. `policy.walker_checkpoint=null` trains joint-level actions end
+in its observation. `policy.skills=null` trains joint-level actions end
 to end at 50 Hz instead, the comparison the skill-based run should beat.
 
 ```bash
@@ -57,7 +58,7 @@ once the ducks find the ball on their own). Evaluation plays
 fraction of decided matches, match length, falls per duck and the ball's
 progress; `evaluation.video.interval=2` films one match from the broadcast
 camera at every second evaluation (10 frames per second with a decision
-period of 5, 50 without a walker). `smoke=true` runs a pipeline check with a
+period of 5, 50 with joint-level control). `smoke=true` runs a pipeline check with a
 short clip written by a CSV logger.
 
 For a warm-started policy, `ppo.reference_kl_coeff` anchors the actor to its
@@ -70,7 +71,7 @@ including knockouts, so a policy is not promoted for conceding more goals.
 
 The native MuJoCo recipe starts with one worker. Measure worker throughput on
 the target machine before increasing `env.num_envs`; rollout steps count match
-skill decisions, each spanning `policy.decision_period` control steps. Other
+skill decisions, each spanning `policy.control_steps_per_decision` control steps. Other
 physics backends remain available in the environment but are outside the
 initial zoo CI support matrix.
 

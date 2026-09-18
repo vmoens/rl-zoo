@@ -7,6 +7,7 @@ import math
 import os
 from copy import deepcopy
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 import torch
@@ -16,7 +17,7 @@ from tensordict.nn import TensorDictModule, TensorDictModuleBase, TensorDictSequ
 from torch import nn
 from torchrl.envs import (
     MicroDuckEnv,
-    microduck_skill_env,
+    MicroDuckSkillEnv,
 )
 from torchrl.envs.custom.mujoco._backends import (
     _has_jax,
@@ -26,6 +27,7 @@ from torchrl.envs.custom.mujoco._backends import (
 )
 from torchrl.envs.utils import check_env_specs
 from torchrl.modules import GRUModule
+from torchrl.modules.tensordict_module.zoo import MicroDuckSkills
 from torchrl.objectives import SoftUpdate
 
 from torchrl_zoo.microduck import football as football_mappo
@@ -52,6 +54,28 @@ _AVAILABLE_BACKENDS = [
 
 
 class TestFootball:
+    def test_legacy_skill_artifact_config_is_migrated(self):
+        policy = football_mappo._migrate_legacy_skill_config(
+            {
+                "walker_checkpoint": "https://huggingface.co/torchrl/microduck-skills/resolve/abc123/priors/nine/walker.ckpt",
+                "walker_sha256": "f" * 64,
+                "skills": [1, 3],
+                "decision_period": 7,
+            }
+        )
+
+        assert policy == {
+            "skills": {
+                "checkpoint": None,
+                "repo_id": "torchrl/microduck-skills",
+                "revision": "abc123",
+                "filename": "priors/nine/walker.ckpt",
+                "sha256": "f" * 64,
+            },
+            "skill_ids": [1, 3],
+            "control_steps_per_decision": 7,
+        }
+
     @pytest.mark.parametrize("ewma", [False, True])
     def test_trainer_resume_matches_next_update_with_frozen_opponent(
         self, tmp_path, ewma
@@ -63,11 +87,13 @@ class TestFootball:
             in_keys=["observation"],
             out_keys=["action"],
         ).requires_grad_(False)
-        env = microduck_skill_env(
+        task_library = MicroDuckEnv.stack_tasks(
+            [MicroDuckEnv.standing_task(), MicroDuckEnv.tracking_task(0.2)]
+        )
+        env = MicroDuckSkillEnv.from_env(
             base,
-            low,
-            [MicroDuckEnv.standing_task(), MicroDuckEnv.tracking_task(0.2)],
-            steps=2,
+            MicroDuckSkills(low, task_library, action_scale=base.action_scale),
+            control_steps_per_decision=2,
         )
         actor, critic = football_mappo.make_models(env, hidden_size=8, depth=1)
         opponent = deepcopy(actor).requires_grad_(False)
@@ -665,11 +691,20 @@ class TestFootball:
         with torch.no_grad():
             low.module.weight.zero_()
             low.module.bias.zero_()
-        env = microduck_skill_env(
-            self._football_env(tmp_path, players_per_team=5, max_episode_steps=12),
-            low,
-            [MicroDuckEnv.standing_task(), MicroDuckEnv.tracking_task(0.2)],
-            steps=3,
+        base = self._football_env(tmp_path, players_per_team=5, max_episode_steps=12)
+        env = MicroDuckSkillEnv.from_env(
+            base,
+            MicroDuckSkills(
+                low,
+                MicroDuckEnv.stack_tasks(
+                    [
+                        MicroDuckEnv.standing_task(),
+                        MicroDuckEnv.tracking_task(0.2),
+                    ]
+                ),
+                action_scale=base.action_scale,
+            ),
+            control_steps_per_decision=3,
         )
         actor, critic = football_mappo.make_models(env, hidden_size=8, depth=1)
         before = [p.detach().clone() for p in actor.parameters()]
@@ -745,7 +780,7 @@ class TestFootball:
         env.close()
 
     @pytest.mark.skipif(not _has_mujoco, reason="MuJoCo is not installed")
-    def test_microduck_skill_env_executes_skills_with_the_walker(self, tmp_path):
+    def test_microduck_skill_env_executes_skill_policy(self, tmp_path):
         tasks = [
             MicroDuckEnv.standing_task(),
             MicroDuckEnv.speed_range_task(0.2, 0.2),
@@ -753,9 +788,9 @@ class TestFootball:
         ]
         joint_action = torch.linspace(-0.5, 0.5, MicroDuckEnv.NUM_JOINTS)
 
-        class Walker(TensorDictModuleBase):
-            in_keys = ["observation", "task_id", "is_init"]
-            out_keys = ["action"]
+        class SkillPolicy(TensorDictModuleBase):
+            in_keys: ClassVar = ["observation", "task_id", "is_init"]
+            out_keys: ClassVar = ["action"]
 
             def __init__(self):
                 super().__init__()
@@ -768,12 +803,21 @@ class TestFootball:
                 ).clone()
                 return tensordict
 
-        walker = Walker()
+        skill_policy = SkillPolicy()
         base = self._football_env(tmp_path, max_episode_steps=7)
-        env = microduck_skill_env(base, walker, tasks, skills=[1, 2], steps=3)
+        env = MicroDuckSkillEnv.from_env(
+            base,
+            MicroDuckSkills(
+                skill_policy,
+                MicroDuckEnv.stack_tasks(tasks),
+                action_scale=base.action_scale,
+            ),
+            skill_ids=[1, 2],
+            control_steps_per_decision=3,
+        )
         assert env.action_spec["agents", "skill"].space.n == 2
         check_env_specs(env)
-        walker.calls.clear()
+        skill_policy.calls.clear()
         td = env.reset()
         assert td["agents", "observation"].shape == (1, 2, base.observation_dim + 2)
         assert (td["agents", "observation"][..., -2:] == torch.tensor([1.0, 0.0])).all()
@@ -782,9 +826,9 @@ class TestFootball:
         )
         out = env.step(td.update(skills))["next"]
         assert base._step_count.item() == 3
-        assert len(walker.calls) == 3
-        first, second = walker.calls[:2]
-        # Each duck's walker gets its skill's library index, command and clock.
+        assert len(skill_policy.calls) == 3
+        first, second = skill_policy.calls[:2]
+        # Each duck's skill policy gets its library index, command and clock.
         assert first["task_id"].squeeze(-1).tolist() == [1, 2]
         assert first["is_init"].all() and not second["is_init"].any()
         command = MicroDuckEnv.COMMAND_START
@@ -849,7 +893,15 @@ class TestFootball:
         with torch.no_grad():
             policy.module.weight.zero_()
             policy.module.bias.zero_()
-        env = microduck_skill_env(base, policy, [MicroDuckEnv.standing_task()], steps=3)
+        env = MicroDuckSkillEnv.from_env(
+            base,
+            MicroDuckSkills(
+                policy,
+                MicroDuckEnv.stack_tasks(MicroDuckEnv.standing_task()),
+                action_scale=base.action_scale,
+            ),
+            control_steps_per_decision=3,
+        )
         td = env.reset()
         base._step_count[0] = 19
         transition = env.rand_step(td)
@@ -857,14 +909,14 @@ class TestFootball:
         assert transition["next", "done"][0].all()
         assert not transition["next", "done"][1].any()
         torch.testing.assert_close(
-            transition["next", "agents", "_controller", "gait_elapsed"],
+            transition["next", "agents", "controller", "gait_elapsed"],
             torch.tensor([[0.02, 0.02], [0.06, 0.06]]),
         )
         env.close()
 
     @pytest.mark.skipif(not _has_mujoco, reason="MuJoCo is not installed")
-    def test_microduck_skill_env_carries_the_walker_state(self, tmp_path):
-        walker = TensorDictSequential(
+    def test_microduck_skill_env_carries_policy_state(self, tmp_path):
+        skill_policy = TensorDictSequential(
             TensorDictModule(
                 nn.Linear(MicroDuckEnv.OBSERVATION_DIM, 8),
                 in_keys=["observation"],
@@ -883,9 +935,17 @@ class TestFootball:
             ),
         )
         base = self._football_env(tmp_path)
-        env = microduck_skill_env(base, walker, [MicroDuckEnv.standing_task()], steps=2)
+        env = MicroDuckSkillEnv.from_env(
+            base,
+            MicroDuckSkills(
+                skill_policy,
+                MicroDuckEnv.stack_tasks(MicroDuckEnv.standing_task()),
+                action_scale=base.action_scale,
+            ),
+            control_steps_per_decision=2,
+        )
         td = env.reset()
-        state_key = ("agents", "_controller", "recurrent_state")
+        state_key = ("agents", "controller", "recurrent_state")
         assert (td[state_key] == 0).all()
         td["agents", "skill"] = torch.zeros(1, 2, dtype=torch.long)
         transition = env.step(td)

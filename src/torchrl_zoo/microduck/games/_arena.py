@@ -12,7 +12,6 @@ import torch
 from tensordict import TensorDict
 from torchrl.data import Binary, Bounded, Composite, Unbounded
 from torchrl.envs import MicroDuckEnv
-from torchrl.envs.custom.mujoco._sensors import _align_microduck_cameras
 from torchrl.envs.custom.mujoco.base import MujocoEnv, _MujocoMeta
 from torchrl.envs.custom.mujoco.microduck import (
     _body_frame_linear_velocity,
@@ -20,7 +19,7 @@ from torchrl.envs.custom.mujoco.microduck import (
     _projected_gravity,
 )
 
-from ..sensors import _GameSensors
+from ..sensors import _align_microduck_cameras, _GameSensors
 from ._scene import (
     _attach_duck,
     _camera_axes,
@@ -597,7 +596,7 @@ class _ArenaEnv(MujocoEnv, metaclass=_ArenaMeta):
         else:
             reward -= newly_fallen[..., None] * 1.0
         # Inactive ducks stay in place. Fallen live ducks restart upright after
-        # half a second; the raw fall signal resets only their walker memory.
+        # half a second; the raw fall signal resets only skill-policy memory.
         self._down_steps = torch.where(
             fallen & self._game_state["active"], self._down_steps + 1, 0
         )

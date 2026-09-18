@@ -32,9 +32,13 @@ env:
   render_width: 640
   render_height: 360
 policy:
-  walker_checkpoint: https://huggingface.co/torchrl/microduck-skills/resolve/8c31e2696520c402980a723b37d025e594197d9d/walker.ckpt
-  walker_sha256: cbb5023d70bac278b3d066914289698c4ca53c6c8502ee39f5285fe51cf62c31
   skills:
+    checkpoint: null
+    repo_id: torchrl/microduck-skills
+    filename: walker.ckpt
+    revision: 8c31e2696520c402980a723b37d025e594197d9d
+    sha256: cbb5023d70bac278b3d066914289698c4ca53c6c8502ee39f5285fe51cf62c31
+  skill_ids:
   - 0
   - 1
   - 2
@@ -42,7 +46,7 @@ policy:
   - 4
   - 5
   - 6
-  decision_period: 5
+  control_steps_per_decision: 5
   hidden_size: 256
   depth: 2
   centralized_critic: false

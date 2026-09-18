@@ -22,9 +22,9 @@ flag possession or simulator velocities. Game commands are communicated by
 the referee at round start. Critic and reward inputs remain explicit simulator
 state and never enter the actor's sensor encoder.
 
-TorchRL owns the proprioceptive schema, sampling and prior sensor models; see
-[its sensor recipe](https://github.com/pytorch/rl/blob/codex/microduck-sensors/examples/microduck/README.md#sensor-policies).
-The zoo owns scene cameras and selector composition. Cameras follow action
+The zoo owns this experimental proprioceptive schema, camera sampling and
+selector composition; they are game-recipe components rather than part of the
+TorchRL environment API. Cameras follow action
 order: blue ducks, then red ducks, with an independent GRU state per duck.
 Default policy images are 64-square centred crops of the nominal 16:9/62-degree
 horizontal-FOV head image, sampled at 30 Hz. Configure size, rate, FOV, delay,
@@ -37,11 +37,11 @@ optical frame. Arena visibility uses the same corrected mount, including state
 recipes; this is a simulation frame correction, not physical camera calibration.
 
 These configurations currently pair the sensor selector with the published
-nine-skill **privileged walker**. They are an **intermediate simulation
-configuration**, not onboard-compatible control. Replacing the walker requires
-a separately trained sensor prior from TorchRL with its exact checkpoint,
+nine-skill **privileged skill policy**. They are an **intermediate simulation
+configuration**, not onboard-compatible control. Replacing that policy requires
+a separately trained sensor prior from TorchRL with its exact artifact,
 schema, task order and calibration. A visual selector alone does not remove
-the walker's simulator-state dependency.
+the low-level policy's simulator-state dependency.
 
 Training collects complete episodes before recurrent updates. Both the learner
 and EWMA proximal actor recompute sequences from episode boundaries; frozen

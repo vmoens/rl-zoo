@@ -9,9 +9,9 @@ The scene is built procedurally from the walking MJCF that
 attaches one copy of the robot per player, with the name prefix
 ``blue<i>/`` or ``red<i>/``, onto a pitch with walls, two goals, a ball and
 two cameras, and returns the MJCF as text. :class:`MicroDuckFootballEnv` is
-the multi-agent env over that scene, and :func:`~torchrl.envs.microduck_skill_env` runs a
-trained joint-level MicroDuck controller under a coarser policy that picks
-one of its locomotion tasks per duck.
+the multi-agent env over that scene. :class:`~torchrl.envs.MicroDuckSkillEnv`
+can make a trained low-level skill policy part of those dynamics, under a
+coarser policy that picks one locomotion skill per duck.
 
 Teams
     ``blue`` (team 0) attacks along ``+x`` and kicks off on the ``x < 0``
@@ -48,7 +48,6 @@ import torch
 from tensordict import TensorDict, TensorDictBase
 from torchrl.data.tensor_specs import Binary, Bounded, Composite, Unbounded
 from torchrl.envs.custom.mujoco._backends import BackendName
-from torchrl.envs.custom.mujoco._sensors import _align_microduck_cameras
 from torchrl.envs.custom.mujoco.base import MujocoEnv, _MujocoMeta
 from torchrl.envs.custom.mujoco.microduck import (
     MicroDuckEnv,
@@ -57,7 +56,7 @@ from torchrl.envs.custom.mujoco.microduck import (
     _projected_gravity,
 )
 
-from ..sensors import _GameSensors
+from ..sensors import _align_microduck_cameras, _GameSensors
 from ._scene import (
     _attach_duck,
     _camera_axes,

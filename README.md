@@ -5,7 +5,17 @@ The [six-game catalog](docs/catalog.md) tracks mechanics, pipeline validation
 and evaluated behavior separately. All six environments have implemented
 mechanics. New-game learned behavior remains under evaluation. Recurrent sensor recipes
 have mechanics and training-pipeline checks; see [sensor selectors](docs/sensors.md).
-Skills and locomotion training remain in TorchRL.
+Skill definitions, the reusable low-level policy architecture and locomotion
+training remain in TorchRL. The zoo composes the published skill artifact with
+game dynamics through TorchRL's explicit skill-environment API:
+
+```python
+from torchrl.envs import MicroDuckSkillEnv
+from torchrl.modules.tensordict_module.zoo import MicroDuckSkills
+
+skills = MicroDuckSkills.from_pretrained()
+env = MicroDuckSkillEnv.from_env(base_game_env, skills)
+```
 
 Install in a virtual environment with Python 3.12. The initial configuration
 uses native MuJoCo on CPU and pinned source installation; no PyPI publication
@@ -13,7 +23,7 @@ or extra Hugging Face repository is required.
 
 ```bash
 python -m pip install -r https://raw.githubusercontent.com/vmoens/rl-zoo/b1a4dcbdfd232f7c84ccf5190ea7ac4493842f2e/requirements-runtime.txt
-python -m pip install --no-build-isolation --no-deps 'torchrl @ https://github.com/pytorch/rl/archive/8c4cc4e725c12fa072df70cd1cd9dda45878237c.zip'
+python -m pip install --no-build-isolation --no-deps 'torchrl @ https://github.com/pytorch/rl/archive/37249c96d3558a40bedc6e156d9e8fea0ae1716f.zip'
 python -m pip install 'torchrl-zoo[test,video] @ https://github.com/vmoens/rl-zoo/archive/b1a4dcbdfd232f7c84ccf5190ea7ac4493842f2e.zip'
 python -m torchrl_zoo.microduck.train game=football observations=state algorithm=ppo runtime=macbook env.download=true smoke=true
 ```
@@ -41,7 +51,7 @@ The default Linux TorchCodec wheel requires CUDA libraries; see its
 The zoo remains optional for TorchRL. Its runtime imports never import
 `examples.microduck`. See [football rules and recipes](docs/football.md) and
 [artifact compatibility](docs/artifacts.md) for existing selectors and their
-exact matching walkers, plus the [new arena games](docs/arena-games.md).
+exact matching skill artifacts, plus the [new arena games](docs/arena-games.md).
 Full game tests live here; TorchRL runs a bounded
 integration tutorial against a pinned zoo revision.
 

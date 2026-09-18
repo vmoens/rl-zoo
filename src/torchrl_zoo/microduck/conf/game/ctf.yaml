@@ -11,5 +11,5 @@ game:
     tag_cooldown_seconds: 1.0
 env:
   players_per_team: 2
-  # The flag round trip exceeds the distance the walker covers in ten seconds.
+  # The flag round trip exceeds the distance the skill policy covers in ten seconds.
   max_episode_steps: 3000

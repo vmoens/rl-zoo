@@ -13,14 +13,12 @@ and predicts one value per duck. Data flows through
 :class:`~torchrl.objectives.ClipPPOLoss` with GAE and a
 :class:`~torchrl.data.ReplayBuffer` for the minibatches.
 
-The ducks come with a walker. ``policy.walker_checkpoint`` names a MicroDuck
-locomotion policy trained with ``ppo_mujoco.py`` (a local path or a URL,
-verified against ``policy.walker_sha256``);
-:func:`~torchrl.envs.microduck_skill_env` builds an env in which the football policy picks
-one of the walker's tasks per duck (stand, walk forward or backward, sidestep
-left or right) every ``policy.decision_period`` control steps, and the frozen
-walker drives the joints in between. ``policy.walker_checkpoint=null`` trains
-joint-level actions end to end instead, at 50 Hz.
+The ducks come with a frozen low-level skill policy. ``policy.skills`` identifies
+the immutable :class:`~torchrl.modules.tensordict_module.zoo.MicroDuckSkills`
+artifact; :class:`~torchrl.envs.MicroDuckSkillEnv` makes it part of the game
+dynamics. The football policy picks one task-conditioned skill per duck every
+``policy.control_steps_per_decision`` physical steps. ``policy.skills=null``
+instead trains joint-level actions end to end at 50 Hz.
 
 Evaluation runs deterministic matches with a
 :class:`~torchrl.collectors.Evaluator` and, on request, films one from the
@@ -52,11 +50,12 @@ from collections.abc import Callable, Mapping
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlparse
 
 import torch
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
-from tensordict import NestedKey, TensorDictBase
+from tensordict import NestedKey, TensorDict, TensorDictBase
 from tensordict.nn import (
     NormalParamExtractor,
     TensorDictModule,
@@ -78,8 +77,8 @@ from torchrl.data import (
 from torchrl.data.tensor_specs import Categorical as CategoricalSpec
 from torchrl.envs import (
     EnvBase,
+    MicroDuckSkillEnv,
     TransformedEnv,
-    microduck_skill_env,
 )
 from torchrl.envs.utils import ExplorationType, set_exploration_type
 from torchrl.modules import (
@@ -88,19 +87,18 @@ from torchrl.modules import (
     TanhNormal,
     get_primers_from_module,
 )
+from torchrl.modules.tensordict_module.zoo import MicroDuckSkills
 from torchrl.objectives import ClipPPOLoss, KLAdaptiveLR, ValueEstimators
 from torchrl.record import VideoRecorder
 from torchrl.record.loggers import Logger, generate_exp_name, get_logger
 from torchrl.render import load_checkpoint, save_render_checkpoint
-from torchrl.trainers import ReplayBufferTrainer
+from torchrl.trainers import ReplayBufferTrainer, UpdateWeights
 from torchrl.trainers.algorithms import PPOTrainer
 
 from torchrl_zoo.microduck.sensors import _SensorSelectorFeatures
 from torchrl_zoo.microduck.training import GameTrainingHooks
 
 PACKAGE_DIR = Path(__file__).resolve().parent
-
-from torchrl.envs import load_microduck_walker
 
 from torchrl_zoo.microduck.games.football import MicroDuckFootballEnv
 
@@ -115,6 +113,48 @@ VALUE_KEY = ("agents", "state_value")
 # ----------------------------------------------------------------------
 # Environment
 # ----------------------------------------------------------------------
+
+
+def _migrate_legacy_skill_config(policy: Mapping[str, Any]) -> dict[str, Any]:
+    """Translate recorded pre-artifact configuration without changing its model."""
+    policy = dict(policy)
+    if "walker_checkpoint" not in policy:
+        return policy
+    source = policy.pop("walker_checkpoint")
+    sha256 = policy.pop("walker_sha256", None)
+    policy["skill_ids"] = policy.pop("skills", None)
+    policy["control_steps_per_decision"] = policy.pop("decision_period", 5)
+    if source is None:
+        policy["skills"] = None
+        return policy
+    parsed = urlparse(str(source))
+    if parsed.scheme in ("http", "https"):
+        parts = parsed.path.strip("/").split("/")
+        if parsed.netloc != "huggingface.co" or "resolve" not in parts:
+            raise ValueError(
+                "Recorded remote skill artifacts must use an immutable "
+                "huggingface.co resolve URL."
+            )
+        resolve = parts.index("resolve")
+        if resolve < 1 or len(parts) < resolve + 3:
+            raise ValueError(f"Cannot parse recorded skill artifact URL {source!r}.")
+        skills = {
+            "checkpoint": None,
+            "repo_id": "/".join(parts[:resolve]),
+            "revision": parts[resolve + 1],
+            "filename": "/".join(parts[resolve + 2 :]),
+            "sha256": sha256,
+        }
+    else:
+        skills = {
+            "checkpoint": str(source),
+            "repo_id": None,
+            "revision": None,
+            "filename": None,
+            "sha256": sha256,
+        }
+    policy["skills"] = skills
+    return policy
 
 
 def make_env(
@@ -140,14 +180,18 @@ def make_env(
     and ``cfg``. The keyword arguments override single entries so a checkpoint
     renders with one match from a local asset path.
 
-    With ``policy.walker_checkpoint`` set, the joint-level
+    With ``policy.skills`` set, the joint-level
     :class:`~torchrl_zoo.microduck.MicroDuckFootballEnv` is wrapped by
-    :func:`~torchrl.envs.microduck_skill_env`, driven by the walker, and the
-    env's actions are skill indices. ``from_pixels`` adds a rendered
+    :class:`~torchrl.envs.MicroDuckSkillEnv`, driven by the frozen low-level
+    policy, and the env's actions are skill indices. ``from_pixels`` adds a rendered
     ``pixels`` observation for the video.
     """
     recorded = checkpoint if isinstance(checkpoint, Mapping) else {}
     recorded_config = dict(recorded.get("config") or {})
+    if "policy" in recorded_config:
+        recorded_config["policy"] = _migrate_legacy_skill_config(
+            recorded_config["policy"] or {}
+        )
     recorded_config["env"] = {
         key: value
         for key, value in (recorded_config.get("env") or {}).items()
@@ -250,20 +294,27 @@ def make_env(
         )
     else:
         env = MicroDuckFootballEnv(microduck_root=env_cfg["microduck_root"], **kwargs)
-    if policy_cfg["walker_checkpoint"] is not None:
-        walker, tasks = load_microduck_walker(
-            policy_cfg["walker_checkpoint"],
-            device=env.device,
-            root=env_cfg["root"],
-            sha256=policy_cfg["walker_sha256"],
-            action_scale=env_cfg["action_scale"],
-        )
-        env = microduck_skill_env(
+    skill_config = policy_cfg["skills"]
+    if skill_config is not None:
+        if skill_config["checkpoint"] is not None:
+            skills = MicroDuckSkills.from_checkpoint(
+                skill_config["checkpoint"],
+                device=env.device,
+                sha256=skill_config["sha256"],
+            )
+        else:
+            skills = MicroDuckSkills.from_pretrained(
+                repo_id=skill_config["repo_id"],
+                filename=skill_config["filename"],
+                revision=skill_config["revision"],
+                device=env.device,
+                sha256=skill_config["sha256"],
+            )
+        env = MicroDuckSkillEnv.from_env(
             env,
-            walker,
-            tasks,
-            skills=policy_cfg["skills"],
-            steps=policy_cfg["decision_period"],
+            skills,
+            skill_ids=policy_cfg["skill_ids"],
+            control_steps_per_decision=policy_cfg["control_steps_per_decision"],
             control_period_s=CONTROL_PERIOD_S,
         )
     return TransformedEnv(env)
@@ -321,7 +372,7 @@ def make_models(
     if observations != "state":
         if not isinstance(action_spec, CategoricalSpec):
             raise ValueError(
-                "Sensor game recipes currently select skills from a matching walker."
+                "Sensor game recipes require a matching MicroDuckSkills artifact."
             )
         features = _SensorSelectorFeatures(
             num_agents,
@@ -866,11 +917,22 @@ def make_trainer(
         action_key=env.action_key,
         done_key=("agents", "done"),
         terminated_key=("agents", "terminated"),
-        weight_update_map={"policy": "collection_policy"},
         checkpoint=Checkpoint(rng=GlobalRNGState()),
         save_trainer_file=save_trainer_file,
         save_trainer_interval=frames_per_batch,
     )
+    # PPOTrainer normally publishes its actor alone. The collector may instead
+    # hold an OpponentPolicy containing both the live actor and a frozen
+    # opponent, so its local state tree must be updated as one object.
+    for op, _ in trainer._post_steps_ops:
+        update = getattr(op, "__wrapped__", None)
+        if isinstance(update, UpdateWeights):
+            update.policy_weights_getter = ft.partial(
+                TensorDict.from_module, collection_policy
+            )
+            break
+    else:
+        raise RuntimeError("PPOTrainer did not register its policy update hook.")
     trainer.collection_policy = collection_policy
     trainer.recurrent_episode_steps = recurrent_episode_steps
     hooks = GameTrainingHooks(
@@ -1016,7 +1078,7 @@ def make_training(recipe: DictConfig) -> PPOTrainer:
         "critic_observation": cfg.observations.get("critic_mode", "state"),
     }
     env = make_env(cfg)
-    skills = cfg.policy.walker_checkpoint is not None
+    skills = cfg.policy.skills is not None
     evaluator = None
     video_env = None
     logger = None
@@ -1095,10 +1157,8 @@ def make_training(recipe: DictConfig) -> PPOTrainer:
         # recorder sees one frame per decision.
         fps = 1.0 / CONTROL_PERIOD_S
         if skills:
-            fps /= cfg.policy.decision_period
-        recorder = VideoRecorder(
-            logger, tag="evaluation/match", skip=1, fps=int(round(fps))
-        )
+            fps /= cfg.policy.control_steps_per_decision
+        recorder = VideoRecorder(logger, tag="evaluation/match", skip=1, fps=round(fps))
         video_env = make_env(
             cfg,
             num_envs=1,
@@ -1136,7 +1196,7 @@ def make_training(recipe: DictConfig) -> PPOTrainer:
         collection_metrics_fn=collection_metrics_fn,
         evaluation_score_fn=score_fn,
         recurrent_episode_steps=math.ceil(
-            cfg.env.max_episode_steps / cfg.policy.decision_period
+            cfg.env.max_episode_steps / cfg.policy.control_steps_per_decision
         )
         if cfg.observations.mode != "state"
         else None,

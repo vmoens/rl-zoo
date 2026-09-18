@@ -92,13 +92,15 @@ def main() -> None:
                 while isinstance(base, TransformedEnv):
                     base = base.base_env
                 td = env.reset()
-                period = cfg["policy"]["decision_period"]
+                period = cfg["policy"]["control_steps_per_decision"]
                 horizon = math.ceil(cfg["env"]["max_episode_steps"] / period)
                 return_per_duck = torch.zeros(base.num_agents)
                 falls = torch.zeros(base.num_agents, dtype=torch.long)
                 previous_fallen = torch.zeros(base.num_agents, dtype=torch.bool)
                 skills = torch.zeros(
-                    base.num_agents, len(cfg["policy"]["skills"]), dtype=torch.long
+                    base.num_agents,
+                    len(cfg["policy"]["skill_ids"]),
+                    dtype=torch.long,
                 )
                 spectator, egocentric = [], []
                 trajectory = []
@@ -171,7 +173,7 @@ def main() -> None:
                                 "flag_position",
                                 "checkpoint",
                             ):
-                                if key in base._game_state.keys():
+                                if key in base._game_state:
                                     sample[key] = base._game_state[key][0].tolist()
                             if game == "pushing":
                                 sample["box_xy"] = physical["qpos"][0, -7:-5].tolist()
