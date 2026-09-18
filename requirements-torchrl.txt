@@ -1,2 +1,2 @@
 # Until the MicroDuck skill artifact and environment stack ships in a release.
-torchrl @ https://github.com/pytorch/rl/archive/37249c96d3558a40bedc6e156d9e8fea0ae1716f.zip
+torchrl @ https://github.com/pytorch/rl/archive/9f0fceee0f6de8c621e5da4d89f7d213d1cbbd38.zip
