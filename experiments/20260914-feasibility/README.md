@@ -1,17 +1,17 @@
 # Initial physical feasibility measurements
 
 Native MuJoCo 3.10.0, Torch 2.11.0, TensorDict 0.14.2, the pinned nine-skill
-walker and one PyTorch CPU thread on macOS 26.6.2 arm64. These are short
+artifact and one PyTorch CPU thread on macOS 26.6.2 arm64. These are short
 mechanics probes with fixed skills, not training runs or independent learning
 seeds. Run the scripts from this directory after installing the matching zoo.
 The JSON files record each condition and preserve unsuccessful trials.
 
 ## Box geometry
 
-The original 14x20x10 cm box tipped under two forward walkers at 25, 50 and
-100 g. Lowering its height to 3 or 5 cm made the feet collide with it and did
-not fix stability. A 28x36x10 cm, 50 g box stayed upright (minimum upright
-cosine 0.977) and moved 1.025 m under both forward walkers in ten seconds.
+The original 14x20x10 cm box tipped under two ducks using the forward skill at
+25, 50 and 100 g. Lowering its height to 3 or 5 cm made the feet collide with
+it and did not fix stability. A 28x36x10 cm, 50 g box stayed upright (minimum
+upright cosine 0.977) and moved 1.025 m under both forward skills in ten seconds.
 A push-then-stand rule moved it 0.785 m in x, with minimum upright cosine 0.978,
 but did not satisfy the settled-delivery condition. No numerical physics
 errors occurred. Ducks still fell frequently; the recorded `falls` is the

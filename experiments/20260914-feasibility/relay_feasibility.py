@@ -4,16 +4,17 @@ import json
 from pathlib import Path
 
 import torch
-from torchrl.envs import load_microduck_walker, microduck_skill_env
+from torchrl.envs import MicroDuckSkillEnv
 from torchrl.envs.utils import ExplorationType, set_exploration_type
+from torchrl.modules.tensordict_module.zoo import MicroDuckSkills
 
 from torchrl_zoo.microduck.games.relay import MicroDuckRelayEnv
 
 torch.set_num_threads(1)
-walker, tasks = load_microduck_walker(
-    "https://huggingface.co/torchrl/microduck-skills/resolve/01ebcefca08850231edc0eb428a0151474559a85/priors/nine-skills-20260913/walker.ckpt",
+skill_artifact = MicroDuckSkills.from_pretrained(
+    revision="01ebcefca08850231edc0eb428a0151474559a85",
+    filename="priors/nine-skills-20260913/walker.ckpt",
     sha256="9fbf1e15b25dd1ce65fcceeb2d854240028be703b72f37b5af05b9b50f115876",
-    action_scale=1.0,
 )
 results = []
 for height in (0.0, 0.005, 0.01, 0.015):
@@ -32,7 +33,9 @@ for height in (0.0, 0.005, 0.01, 0.015):
             q[0, 3:7] = torch.tensor([1.0, 0, 0, 0])
             q[1, 0] = -0.9
             q[1, 1] = -0.7
-            env = microduck_skill_env(base, walker, tasks, steps=5)
+            env = MicroDuckSkillEnv.from_env(
+                base, skill_artifact, control_steps_per_decision=5
+            )
             try:
                 td = env.reset()
                 any_fall = False
