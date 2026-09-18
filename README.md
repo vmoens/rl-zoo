@@ -23,7 +23,7 @@ or extra Hugging Face repository is required.
 
 ```bash
 python -m pip install -r https://raw.githubusercontent.com/vmoens/rl-zoo/b1a4dcbdfd232f7c84ccf5190ea7ac4493842f2e/requirements-runtime.txt
-python -m pip install --no-build-isolation --no-deps 'torchrl @ https://github.com/pytorch/rl/archive/2d362a95fe45a5bed9c6285ae829fe16d322bb9c.zip'
+python -m pip install --no-build-isolation --no-deps 'torchrl @ https://github.com/pytorch/rl/archive/e55781246664a7cbbbedac15430885318ba9a251.zip'
 python -m pip install 'torchrl-zoo[test,video] @ https://github.com/vmoens/rl-zoo/archive/b1a4dcbdfd232f7c84ccf5190ea7ac4493842f2e.zip'
 python -m torchrl_zoo.microduck.train game=football observations=state algorithm=ppo runtime=macbook env.download=true smoke=true
 ```
