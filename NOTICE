@@ -1,0 +1,3 @@
+MicroDuck football and supporting recipes were adapted from pytorch/rl,
+Copyright (c) Meta Platforms, Inc. and affiliates, under the MIT license.
+Robot assets are resolved from upstream sources by TorchRL and are not vendored.

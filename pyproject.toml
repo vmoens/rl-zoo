@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "torchrl-zoo"
+version = "0.1.0"
+description = "Game environments and recipes built with TorchRL"
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = ["torchrl", "mujoco>=3.7", "hydra-core>=1.3,<1.4", "huggingface-hub"]
+
+[project.optional-dependencies]
+video = ["torchcodec>=0.10.0"]
+test = ["pytest", "pytest-timeout"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"torchrl_zoo.microduck" = ["*.yaml", "conf/**/*.yaml", "conf/*.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["gpu: requires a CUDA device"]

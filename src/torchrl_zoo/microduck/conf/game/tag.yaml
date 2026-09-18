@@ -1,0 +1,10 @@
+# @package _global_
+defaults:
+  - arena
+game:
+  name: tag
+  env:
+    _target_: torchrl_zoo.microduck.games.tag.MicroDuckTagEnv
+  options:
+    role: random
+    tag_radius: 0.16

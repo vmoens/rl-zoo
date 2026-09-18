@@ -1,0 +1,6 @@
+# @package _global_
+algorithm:
+  name: ppo
+loss:
+  delay_actor: false
+target_net_updater: null

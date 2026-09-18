@@ -1,0 +1,14 @@
+# @package _global_
+defaults:
+  - arena
+game:
+  name: pushing
+  env:
+    _target_: torchrl_zoo.microduck.games.pushing.MicroDuckPushingEnv
+  options:
+    delivery_radius: 0.15
+    settle_speed: 0.03
+    dwell_seconds: 0.5
+    arena:
+      box_mass: 0.05
+      box_size: [0.28, 0.36, 0.1]

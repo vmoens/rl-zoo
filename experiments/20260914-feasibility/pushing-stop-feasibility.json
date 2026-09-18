@@ -1,0 +1,28 @@
+{
+  "protocol": "Native MuJoCo, 100 skill decisions (10 simulated seconds), zero spawn noise. Ducks start at x=-0.35, y=+-0.12, facing +x. Fixed stand/forward skills; stop variant switches both to standing once box x exceeds 0.68 m. Repeated zero-noise seeds are identical and are not independent statistical evidence. The falls field counts per-duck fallen decision flags, not fall events.",
+  "results": [
+    {
+      "size": [
+        0.28,
+        0.36,
+        0.1
+      ],
+      "mass": 0.05,
+      "skills": [
+        1,
+        1
+      ],
+      "seed": 0,
+      "decisions": 100,
+      "box_displacement_x": 0.7849746942520142,
+      "max_box_height": 0.08309987187385559,
+      "min_box_upright": 0.978471040725708,
+      "max_box_speed": 1.4482470750808716,
+      "falls": 30,
+      "physics_error": false,
+      "delivered": false
+    }
+  ],
+  "walker_revision": "01ebcefca08850231edc0eb428a0151474559a85",
+  "walker_sha256": "9fbf1e15b25dd1ce65fcceeb2d854240028be703b72f37b5af05b9b50f115876"
+}

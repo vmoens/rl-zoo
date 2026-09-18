@@ -1,0 +1,5 @@
+# @package _global_
+observations:
+  mode: state
+  actor: [agents, observation]
+  critic: [agents, observation]

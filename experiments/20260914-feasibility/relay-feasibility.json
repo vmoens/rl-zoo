@@ -1,0 +1,183 @@
+{
+  "protocol": "Actual flat/5/10/15mm barrier crossings, 1cm spawn perturbations, fixed forward or forward-hop skills; no reset may count as upright crossing.",
+  "results": [
+    {
+      "barrier_height": 0.0,
+      "skill": 1,
+      "seed": 0,
+      "decisions": 29,
+      "crossed": true,
+      "fall_before_crossing": false,
+      "upright_crossing": true,
+      "physics_error": false,
+      "max_x": 0.5828319191932678
+    },
+    {
+      "barrier_height": 0.0,
+      "skill": 1,
+      "seed": 1,
+      "decisions": 29,
+      "crossed": true,
+      "fall_before_crossing": false,
+      "upright_crossing": true,
+      "physics_error": false,
+      "max_x": 0.5880594253540039
+    },
+    {
+      "barrier_height": 0.0,
+      "skill": 5,
+      "seed": 0,
+      "decisions": 25,
+      "crossed": true,
+      "fall_before_crossing": false,
+      "upright_crossing": true,
+      "physics_error": false,
+      "max_x": 0.5956239104270935
+    },
+    {
+      "barrier_height": 0.0,
+      "skill": 5,
+      "seed": 1,
+      "decisions": 25,
+      "crossed": true,
+      "fall_before_crossing": false,
+      "upright_crossing": true,
+      "physics_error": false,
+      "max_x": 0.6008514165878296
+    },
+    {
+      "barrier_height": 0.005,
+      "skill": 1,
+      "seed": 0,
+      "decisions": 29,
+      "crossed": true,
+      "fall_before_crossing": false,
+      "upright_crossing": true,
+      "physics_error": false,
+      "max_x": 0.580710232257843
+    },
+    {
+      "barrier_height": 0.005,
+      "skill": 1,
+      "seed": 1,
+      "decisions": 29,
+      "crossed": true,
+      "fall_before_crossing": false,
+      "upright_crossing": true,
+      "physics_error": false,
+      "max_x": 0.5891545414924622
+    },
+    {
+      "barrier_height": 0.005,
+      "skill": 5,
+      "seed": 0,
+      "decisions": 26,
+      "crossed": true,
+      "fall_before_crossing": false,
+      "upright_crossing": true,
+      "physics_error": false,
+      "max_x": 0.5865833163261414
+    },
+    {
+      "barrier_height": 0.005,
+      "skill": 5,
+      "seed": 1,
+      "decisions": 26,
+      "crossed": true,
+      "fall_before_crossing": false,
+      "upright_crossing": true,
+      "physics_error": false,
+      "max_x": 0.6002093553543091
+    },
+    {
+      "barrier_height": 0.01,
+      "skill": 1,
+      "seed": 0,
+      "decisions": 30,
+      "crossed": true,
+      "fall_before_crossing": false,
+      "upright_crossing": true,
+      "physics_error": false,
+      "max_x": 0.6062613725662231
+    },
+    {
+      "barrier_height": 0.01,
+      "skill": 1,
+      "seed": 1,
+      "decisions": 33,
+      "crossed": true,
+      "fall_before_crossing": false,
+      "upright_crossing": true,
+      "physics_error": false,
+      "max_x": 0.5877581238746643
+    },
+    {
+      "barrier_height": 0.01,
+      "skill": 5,
+      "seed": 0,
+      "decisions": 35,
+      "crossed": true,
+      "fall_before_crossing": true,
+      "upright_crossing": false,
+      "physics_error": false,
+      "max_x": 0.5886293053627014
+    },
+    {
+      "barrier_height": 0.01,
+      "skill": 5,
+      "seed": 1,
+      "decisions": 36,
+      "crossed": true,
+      "fall_before_crossing": true,
+      "upright_crossing": false,
+      "physics_error": false,
+      "max_x": 0.5814365744590759
+    },
+    {
+      "barrier_height": 0.015,
+      "skill": 1,
+      "seed": 0,
+      "decisions": 39,
+      "crossed": true,
+      "fall_before_crossing": true,
+      "upright_crossing": false,
+      "physics_error": false,
+      "max_x": 0.5887297987937927
+    },
+    {
+      "barrier_height": 0.015,
+      "skill": 1,
+      "seed": 1,
+      "decisions": 100,
+      "crossed": false,
+      "fall_before_crossing": true,
+      "upright_crossing": false,
+      "physics_error": false,
+      "max_x": 0.5562053918838501
+    },
+    {
+      "barrier_height": 0.015,
+      "skill": 5,
+      "seed": 0,
+      "decisions": 34,
+      "crossed": true,
+      "fall_before_crossing": true,
+      "upright_crossing": false,
+      "physics_error": false,
+      "max_x": 0.582286536693573
+    },
+    {
+      "barrier_height": 0.015,
+      "skill": 5,
+      "seed": 1,
+      "decisions": 27,
+      "crossed": true,
+      "fall_before_crossing": true,
+      "upright_crossing": false,
+      "physics_error": false,
+      "max_x": 0.5802752375602722
+    }
+  ],
+  "walker_revision": "01ebcefca08850231edc0eb428a0151474559a85",
+  "walker_sha256": "9fbf1e15b25dd1ce65fcceeb2d854240028be703b72f37b5af05b9b50f115876"
+}

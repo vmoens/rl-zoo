@@ -1,0 +1,12 @@
+# @package _global_
+defaults:
+  - arena
+game:
+  name: relay
+  env:
+    _target_: torchrl_zoo.microduck.games.relay.MicroDuckRelayEnv
+  options:
+    checkpoint_radius: 0.16
+    handoff_radius: 0.18
+    arena:
+      barrier_height: 0.0

@@ -1,0 +1,196 @@
+{
+  "protocol": "Native MuJoCo, 100 skill decisions (10 simulated seconds), zero spawn noise. Ducks start at x=-0.35, y=+-0.12, facing +x. Fixed stand/forward skills; stop variant switches both to standing once box x exceeds 0.68 m. Repeated zero-noise seeds are identical and are not independent statistical evidence. The falls field counts per-duck fallen decision flags, not fall events.",
+  "results": [
+    {
+      "size": [
+        0.28,
+        0.36,
+        0.1
+      ],
+      "mass": 0.025,
+      "skills": [
+        0,
+        0
+      ],
+      "seed": 0,
+      "decisions": 100,
+      "box_displacement_x": 1.0782622480637652e-15,
+      "max_box_height": 0.04989224299788475,
+      "min_box_upright": 1.0,
+      "max_box_speed": 0.019283782690763474,
+      "falls": 0,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "size": [
+        0.28,
+        0.36,
+        0.1
+      ],
+      "mass": 0.025,
+      "skills": [
+        1,
+        0
+      ],
+      "seed": 0,
+      "decisions": 100,
+      "box_displacement_x": 0.07426827400922775,
+      "max_box_height": 0.07974032312631607,
+      "min_box_upright": 0.985689103603363,
+      "max_box_speed": 0.6051104664802551,
+      "falls": 6,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "size": [
+        0.28,
+        0.36,
+        0.1
+      ],
+      "mass": 0.025,
+      "skills": [
+        1,
+        1
+      ],
+      "seed": 0,
+      "decisions": 100,
+      "box_displacement_x": 0.5007594227790833,
+      "max_box_height": 0.16985541582107544,
+      "min_box_upright": -0.7372583150863647,
+      "max_box_speed": 1.203835129737854,
+      "falls": 24,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "size": [
+        0.28,
+        0.36,
+        0.1
+      ],
+      "mass": 0.05,
+      "skills": [
+        0,
+        0
+      ],
+      "seed": 0,
+      "decisions": 100,
+      "box_displacement_x": 6.156239166413399e-16,
+      "max_box_height": 0.04989224299788475,
+      "min_box_upright": 1.0,
+      "max_box_speed": 0.019283782690763474,
+      "falls": 0,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "size": [
+        0.28,
+        0.36,
+        0.1
+      ],
+      "mass": 0.05,
+      "skills": [
+        1,
+        0
+      ],
+      "seed": 0,
+      "decisions": 100,
+      "box_displacement_x": 0.045481257140636444,
+      "max_box_height": 0.05572175234556198,
+      "min_box_upright": 0.9987411499023438,
+      "max_box_speed": 0.278364360332489,
+      "falls": 12,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "size": [
+        0.28,
+        0.36,
+        0.1
+      ],
+      "mass": 0.05,
+      "skills": [
+        1,
+        1
+      ],
+      "seed": 0,
+      "decisions": 100,
+      "box_displacement_x": 1.0248243808746338,
+      "max_box_height": 0.09711728990077972,
+      "min_box_upright": 0.9768674969673157,
+      "max_box_speed": 1.5195800065994263,
+      "falls": 41,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "size": [
+        0.36,
+        0.4,
+        0.1
+      ],
+      "mass": 0.025,
+      "skills": [
+        0,
+        0
+      ],
+      "seed": 0,
+      "decisions": 100,
+      "box_displacement_x": -4.753974898006598e-18,
+      "max_box_height": 0.04989224299788475,
+      "min_box_upright": 1.0,
+      "max_box_speed": 0.019283782690763474,
+      "falls": 0,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "size": [
+        0.36,
+        0.4,
+        0.1
+      ],
+      "mass": 0.025,
+      "skills": [
+        1,
+        0
+      ],
+      "seed": 0,
+      "decisions": 100,
+      "box_displacement_x": 1.050601601600647,
+      "max_box_height": 0.08157278597354889,
+      "min_box_upright": 0.9842211008071899,
+      "max_box_speed": 0.7147529125213623,
+      "falls": 12,
+      "physics_error": false,
+      "delivered": false
+    },
+    {
+      "size": [
+        0.36,
+        0.4,
+        0.1
+      ],
+      "mass": 0.025,
+      "skills": [
+        1,
+        1
+      ],
+      "seed": 0,
+      "decisions": 100,
+      "box_displacement_x": 0.511455237865448,
+      "max_box_height": 0.13084237277507782,
+      "min_box_upright": 0.8748307228088379,
+      "max_box_speed": 0.6003600358963013,
+      "falls": 27,
+      "physics_error": false,
+      "delivered": false
+    }
+  ],
+  "walker_revision": "01ebcefca08850231edc0eb428a0151474559a85",
+  "walker_sha256": "9fbf1e15b25dd1ce65fcceeb2d854240028be703b72f37b5af05b9b50f115876"
+}
